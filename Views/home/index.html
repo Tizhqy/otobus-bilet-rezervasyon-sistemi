@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BusGo — Book Bus Tickets Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999;"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-busgo">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">
+        <i data-lucide="bus" style="width:28px;height:28px;"></i>
+        BusGo
+      </a>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+        <i data-lucide="menu" style="width:24px;height:24px;"></i>
+      </button>
+      <div class="collapse navbar-collapse" id="navMain">
+        <ul class="navbar-nav me-auto ms-4">
+          <li class="nav-item"><a class="nav-link active" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="search-results.html">Routes</a></li>
+          <li class="nav-item"><a class="nav-link" href="dashboard.html">My Trips</a></li>
+        </ul>
+        <div class="d-flex align-items-center gap-2">
+          <a href="login.html" class="btn btn-ghost">Log In</a>
+          <a href="register.html" class="btn btn-primary-busgo">Sign Up</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="container position-relative" style="z-index:5;">
+      <div class="row align-items-center">
+        <div class="col-lg-7">
+          <span class="badge rounded-pill px-3 py-2 mb-3" style="background:rgba(230,126,34,0.2);color:#f39c12;font-weight:600;">
+            <i data-lucide="sparkles" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+            Trusted by 2M+ travelers
+          </span>
+          <h1 class="mb-3" style="color:#fff;">Travel smarter.<br>Book your bus<br>in seconds.</h1>
+          <p class="mb-0" style="max-width:480px;">
+            Search hundreds of routes, compare prices, and book your seat — all from one place. Fast, secure, and hassle-free.
+          </p>
+        </div>
+        <div class="col-lg-5 d-none d-lg-flex justify-content-end">
+          <div style="background:rgba(255,255,255,0.08);border-radius:20px;padding:2rem;border:1px solid rgba(255,255,255,0.1);max-width:320px;width:100%;">
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div style="width:48px;height:48px;background:rgba(230,126,34,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i data-lucide="shield-check" style="width:24px;height:24px;color:#f39c12;"></i>
+              </div>
+              <div>
+                <div style="font-weight:700;font-size:1.1rem;">Secure Booking</div>
+                <div style="font-size:0.85rem;opacity:0.7;">256-bit SSL encryption</div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div style="width:48px;height:48px;background:rgba(39,174,96,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i data-lucide="clock" style="width:24px;height:24px;color:#27ae60;"></i>
+              </div>
+              <div>
+                <div style="font-weight:700;font-size:1.1rem;">Instant Confirmation</div>
+                <div style="font-size:0.85rem;opacity:0.7;">E-ticket sent to email</div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+              <div style="width:48px;height:48px;background:rgba(41,128,185,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i data-lucide="headphones" style="width:24px;height:24px;color:#2980b9;"></i>
+              </div>
+              <div>
+                <div style="font-weight:700;font-size:1.1rem;">24/7 Support</div>
+                <div style="font-size:0.85rem;opacity:0.7;">Always here to help</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Search Card -->
+  <div class="container">
+    <div class="search-card slide-up">
+      <form id="searchForm" onsubmit="handleSearch(event)">
+        <div class="row g-3 align-items-end">
+          <div class="col-lg-3 col-md-6">
+            <label class="form-label fw-600" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">FROM</label>
+            <div class="search-input-group">
+              <i data-lucide="map-pin" class="input-icon"></i>
+              <input type="text" class="form-control" id="originInput" placeholder="City or station" value="New York" required>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6" style="position:relative;">
+            <label class="form-label fw-600" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">TO</label>
+            <div class="search-input-group">
+              <i data-lucide="map-pin" class="input-icon"></i>
+              <input type="text" class="form-control" id="destInput" placeholder="City or station" value="Washington DC" required>
+            </div>
+            <div class="swap-btn d-none d-lg-flex" onclick="swapCities()" title="Swap cities" style="left:-24px;">
+              <i data-lucide="arrow-left-right" style="width:16px;height:16px;"></i>
+            </div>
+          </div>
+          <div class="col-lg-2 col-md-4">
+            <label class="form-label fw-600" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">DATE</label>
+            <div class="search-input-group">
+              <i data-lucide="calendar" class="input-icon"></i>
+              <input type="date" class="form-control" id="dateInput" required>
+            </div>
+          </div>
+          <div class="col-lg-2 col-md-4">
+            <label class="form-label fw-600" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">PASSENGERS</label>
+            <div class="search-input-group">
+              <i data-lucide="users" class="input-icon"></i>
+              <select class="form-select" id="passengersInput" style="padding-left:2.75rem;">
+                <option value="1">1 Adult</option>
+                <option value="2">2 Adults</option>
+                <option value="3">3 Adults</option>
+                <option value="4">4 Adults</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-lg-2 col-md-4">
+            <button type="submit" class="btn btn-primary-busgo w-100 py-3" style="font-size:1rem;">
+              <i data-lucide="search" style="width:18px;height:18px;"></i>
+              Search
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Featured Routes -->
+  <section class="py-5 mt-4">
+    <div class="container">
+      <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+          <h2 class="h3 fw-800 mb-1">Popular Routes</h2>
+          <p class="text-muted mb-0">Most booked destinations this week</p>
+        </div>
+        <a href="search-results.html" class="btn btn-outline-busgo d-none d-md-flex">
+          View all routes
+          <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+        </a>
+      </div>
+      <div class="row g-3">
+        <div class="col-lg-4 col-md-6">
+          <div class="route-card" onclick="window.location.href='search-results.html'">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:42px;height:42px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="building-2" style="width:20px;height:20px;color:var(--primary);"></i>
+                </div>
+                <div>
+                  <div class="fw-700" style="font-weight:700;color:var(--text-dark);">New York</div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Penn Station</div>
+                </div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--text-muted);"></i>
+              <div class="text-end">
+                <div class="fw-700" style="font-weight:700;color:var(--text-dark);">Washington DC</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">Union Station</div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between pt-2" style="border-top:1px solid var(--border-light);">
+              <div class="d-flex gap-2">
+                <span class="amenity-tag"><i data-lucide="wifi" style="width:12px;height:12px;"></i> WiFi</span>
+                <span class="amenity-tag"><i data-lucide="plug" style="width:12px;height:12px;"></i> Power</span>
+              </div>
+              <div>
+                <span style="font-size:0.8rem;color:var(--text-muted);">from </span>
+                <span class="route-price">$25</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="route-card" onclick="window.location.href='search-results.html'">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:42px;height:42px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="building-2" style="width:20px;height:20px;color:var(--primary);"></i>
+                </div>
+                <div>
+                  <div class="fw-700" style="font-weight:700;color:var(--text-dark);">Boston</div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">South Station</div>
+                </div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--text-muted);"></i>
+              <div class="text-end">
+                <div class="fw-700" style="font-weight:700;color:var(--text-dark);">New York</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">Penn Station</div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between pt-2" style="border-top:1px solid var(--border-light);">
+              <div class="d-flex gap-2">
+                <span class="amenity-tag"><i data-lucide="wifi" style="width:12px;height:12px;"></i> WiFi</span>
+                <span class="amenity-tag"><i data-lucide="armchair" style="width:12px;height:12px;"></i> Reclining</span>
+              </div>
+              <div>
+                <span style="font-size:0.8rem;color:var(--text-muted);">from </span>
+                <span class="route-price">$18</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="route-card" onclick="window.location.href='search-results.html'">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:42px;height:42px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="building-2" style="width:20px;height:20px;color:var(--primary);"></i>
+                </div>
+                <div>
+                  <div class="fw-700" style="font-weight:700;color:var(--text-dark);">Philadelphia</div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">30th St Station</div>
+                </div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--text-muted);"></i>
+              <div class="text-end">
+                <div class="fw-700" style="font-weight:700;color:var(--text-dark);">Baltimore</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">Downtown</div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between pt-2" style="border-top:1px solid var(--border-light);">
+              <div class="d-flex gap-2">
+                <span class="amenity-tag"><i data-lucide="wifi" style="width:12px;height:12px;"></i> WiFi</span>
+                <span class="amenity-tag"><i data-lucide="luggage" style="width:12px;height:12px;"></i> Luggage</span>
+              </div>
+              <div>
+                <span style="font-size:0.8rem;color:var(--text-muted);">from </span>
+                <span class="route-price">$15</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="route-card" onclick="window.location.href='search-results.html'">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:42px;height:42px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="building-2" style="width:20px;height:20px;color:var(--primary);"></i>
+                </div>
+                <div>
+                  <div class="fw-700" style="font-weight:700;color:var(--text-dark);">Chicago</div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Union Station</div>
+                </div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--text-muted);"></i>
+              <div class="text-end">
+                <div class="fw-700" style="font-weight:700;color:var(--text-dark);">Detroit</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">Rosa Parks Terminal</div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between pt-2" style="border-top:1px solid var(--border-light);">
+              <div class="d-flex gap-2">
+                <span class="amenity-tag"><i data-lucide="wifi" style="width:12px;height:12px;"></i> WiFi</span>
+                <span class="amenity-tag"><i data-lucide="plug" style="width:12px;height:12px;"></i> Power</span>
+              </div>
+              <div>
+                <span style="font-size:0.8rem;color:var(--text-muted);">from </span>
+                <span class="route-price">$32</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="route-card" onclick="window.location.href='search-results.html'">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:42px;height:42px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="building-2" style="width:20px;height:20px;color:var(--primary);"></i>
+                </div>
+                <div>
+                  <div class="fw-700" style="font-weight:700;color:var(--text-dark);">Los Angeles</div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Union Station</div>
+                </div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--text-muted);"></i>
+              <div class="text-end">
+                <div class="fw-700" style="font-weight:700;color:var(--text-dark);">San Francisco</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">Salesforce Transit</div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between pt-2" style="border-top:1px solid var(--border-light);">
+              <div class="d-flex gap-2">
+                <span class="amenity-tag"><i data-lucide="wifi" style="width:12px;height:12px;"></i> WiFi</span>
+                <span class="amenity-tag"><i data-lucide="armchair" style="width:12px;height:12px;"></i> Premium</span>
+              </div>
+              <div>
+                <span style="font-size:0.8rem;color:var(--text-muted);">from </span>
+                <span class="route-price">$45</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="route-card" onclick="window.location.href='search-results.html'">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:42px;height:42px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                  <i data-lucide="building-2" style="width:20px;height:20px;color:var(--primary);"></i>
+                </div>
+                <div>
+                  <div class="fw-700" style="font-weight:700;color:var(--text-dark);">Atlanta</div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Peachtree Station</div>
+                </div>
+              </div>
+              <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--text-muted);"></i>
+              <div class="text-end">
+                <div class="fw-700" style="font-weight:700;color:var(--text-dark);">Miami</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">MIC Station</div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between pt-2" style="border-top:1px solid var(--border-light);">
+              <div class="d-flex gap-2">
+                <span class="amenity-tag"><i data-lucide="wifi" style="width:12px;height:12px;"></i> WiFi</span>
+                <span class="amenity-tag"><i data-lucide="luggage" style="width:12px;height:12px;"></i> 2 Bags</span>
+              </div>
+              <div>
+                <span style="font-size:0.8rem;color:var(--text-muted);">from </span>
+                <span class="route-price">$38</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why Choose Us -->
+  <section class="py-5" style="background:var(--bg-white);">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="h3 fw-800 mb-2">Why travelers choose BusGo</h2>
+        <p class="text-muted" style="max-width:500px;margin:0 auto;">Everything you need for a comfortable journey, from booking to arrival.</p>
+      </div>
+      <div class="row g-4">
+        <div class="col-lg-3 col-md-6">
+          <div class="feature-card">
+            <div class="feature-icon" style="background:var(--primary-bg);color:var(--primary);">
+              <i data-lucide="wallet" style="width:28px;height:28px;"></i>
+            </div>
+            <h5 class="h6 fw-700">Best Prices</h5>
+            <p class="text-muted mb-0" style="font-size:0.9rem;">Compare fares across operators and always find the best deal.</p>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <div class="feature-card">
+            <div class="feature-icon" style="background:rgba(230,126,34,0.1);color:var(--accent);">
+              <i data-lucide="zap" style="width:28px;height:28px;"></i>
+            </div>
+            <h5 class="h6 fw-700">Instant Booking</h5>
+            <p class="text-muted mb-0" style="font-size:0.9rem;">Book in under 60 seconds with instant e-ticket confirmation.</p>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <div class="feature-card">
+            <div class="feature-icon" style="background:var(--success-bg);color:var(--success);">
+              <i data-lucide="shield-check" style="width:28px;height:28px;"></i>
+            </div>
+            <h5 class="h6 fw-700">Trusted & Secure</h5>
+            <p class="text-muted mb-0" style="font-size:0.9rem;">Secure payments and verified bus operators you can trust.</p>
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <div class="feature-card">
+            <div class="feature-icon" style="background:var(--info-bg);color:var(--info);">
+              <i data-lucide="smartphone" style="width:28px;height:28px;"></i>
+            </div>
+            <h5 class="h6 fw-700">Mobile Tickets</h5>
+            <p class="text-muted mb-0" style="font-size:0.9rem;">Show your ticket on your phone. No printing required.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Bar -->
+  <section class="py-5">
+    <div class="container">
+      <div class="row g-4 text-center">
+        <div class="col-6 col-md-3">
+          <h3 class="fw-800 mb-1" style="color:var(--primary);">2M+</h3>
+          <p class="text-muted mb-0" style="font-size:0.9rem;">Happy Travelers</p>
+        </div>
+        <div class="col-6 col-md-3">
+          <h3 class="fw-800 mb-1" style="color:var(--primary);">500+</h3>
+          <p class="text-muted mb-0" style="font-size:0.9rem;">Bus Routes</p>
+        </div>
+        <div class="col-6 col-md-3">
+          <h3 class="fw-800 mb-1" style="color:var(--primary);">150+</h3>
+          <p class="text-muted mb-0" style="font-size:0.9rem;">Cities Connected</p>
+        </div>
+        <div class="col-6 col-md-3">
+          <h3 class="fw-800 mb-1" style="color:var(--primary);">4.8</h3>
+          <p class="text-muted mb-0" style="font-size:0.9rem;">Average Rating</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer-busgo">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-lg-4">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <i data-lucide="bus" style="width:24px;height:24px;color:var(--accent);"></i>
+            <span style="font-weight:800;font-size:1.25rem;color:#fff;">BusGo</span>
+          </div>
+          <p style="font-size:0.9rem;max-width:300px;">The smartest way to book bus tickets online. Compare routes, pick your seat, and travel with confidence.</p>
+        </div>
+        <div class="col-6 col-lg-2">
+          <h6>Company</h6>
+          <a href="#">About Us</a>
+          <a href="#">Careers</a>
+          <a href="#">Press</a>
+          <a href="#">Blog</a>
+        </div>
+        <div class="col-6 col-lg-2">
+          <h6>Support</h6>
+          <a href="#">Help Center</a>
+          <a href="#">Contact Us</a>
+          <a href="#">Refund Policy</a>
+          <a href="#">FAQs</a>
+        </div>
+        <div class="col-6 col-lg-2">
+          <h6>Legal</h6>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Use</a>
+          <a href="#">Cookie Policy</a>
+        </div>
+        <div class="col-6 col-lg-2">
+          <h6>Connect</h6>
+          <a href="#">Twitter</a>
+          <a href="#">Facebook</a>
+          <a href="#">Instagram</a>
+          <a href="#">LinkedIn</a>
+        </div>
+      </div>
+      <div class="footer-bottom d-flex flex-wrap justify-content-between align-items-center">
+        <p class="mb-0" style="font-size:0.85rem;">2026 BusGo. All rights reserved.</p>
+        <div class="d-flex gap-3" style="font-size:0.85rem;">
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+          <a href="#">Cookies</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('dateInput').value = tomorrow.toISOString().split('T')[0];
+
+    function swapCities() {
+      const origin = document.getElementById('originInput');
+      const dest = document.getElementById('destInput');
+      const temp = origin.value;
+      origin.value = dest.value;
+      dest.value = temp;
+    }
+
+    function handleSearch(e) {
+      e.preventDefault();
+      window.location.href = 'search-results.html';
+    }
+  </script>
+</body>
+</html>

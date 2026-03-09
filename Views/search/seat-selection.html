@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select Your Seat — BusGo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+  <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999;"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-busgo">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">
+        <i data-lucide="bus" style="width:28px;height:28px;"></i>
+        BusGo
+      </a>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+        <i data-lucide="menu" style="width:24px;height:24px;"></i>
+      </button>
+      <div class="collapse navbar-collapse" id="navMain">
+        <ul class="navbar-nav me-auto ms-4">
+          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="search-results.html">Routes</a></li>
+          <li class="nav-item"><a class="nav-link" href="dashboard.html">My Trips</a></li>
+        </ul>
+        <div class="d-flex align-items-center gap-2">
+          <a href="login.html" class="btn btn-ghost">Log In</a>
+          <a href="register.html" class="btn btn-primary-busgo">Sign Up</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Progress Steps -->
+  <div class="container">
+    <div class="progress-steps">
+      <div class="progress-step done">
+        <div class="step-number"><i data-lucide="check" style="width:16px;height:16px;"></i></div>
+        <span class="step-label">Search</span>
+      </div>
+      <div class="progress-step-line done"></div>
+      <div class="progress-step active">
+        <div class="step-number">2</div>
+        <span class="step-label">Select Seat</span>
+      </div>
+      <div class="progress-step-line"></div>
+      <div class="progress-step">
+        <div class="step-number">3</div>
+        <span class="step-label">Checkout</span>
+      </div>
+      <div class="progress-step-line"></div>
+      <div class="progress-step">
+        <div class="step-number">4</div>
+        <span class="step-label">Confirmation</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <section class="pb-5">
+    <div class="container">
+      <div class="row g-4">
+        <!-- Seat Map -->
+        <div class="col-lg-8">
+          <div class="seat-map-container">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+              <div>
+                <h4 class="mb-1">Choose Your Seat</h4>
+                <p class="text-muted mb-0" style="font-size:0.9rem;">GreenLine Express &middot; Standard Class &middot; 44 Seats</p>
+              </div>
+              <div class="d-flex align-items-center gap-1" style="color:var(--text-muted);font-size:0.85rem;">
+                <i data-lucide="info" style="width:16px;height:16px;"></i>
+                <span>Tap a seat to select</span>
+              </div>
+            </div>
+
+            <!-- Bus Layout -->
+            <div class="bus-outline">
+              <div class="bus-front">
+                <i data-lucide="circle-dot" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+                Driver
+              </div>
+
+              <!-- Row 1 -->
+              <div class="seat-row">
+                <div class="seat" data-seat="1A" onclick="toggleSeat(this)">1A</div>
+                <div class="seat" data-seat="1B" onclick="toggleSeat(this)">1B</div>
+                <div class="aisle"></div>
+                <div class="seat taken" data-seat="1C">1C</div>
+                <div class="seat" data-seat="1D" onclick="toggleSeat(this)">1D</div>
+              </div>
+              <!-- Row 2 -->
+              <div class="seat-row">
+                <div class="seat taken" data-seat="2A">2A</div>
+                <div class="seat taken" data-seat="2B">2B</div>
+                <div class="aisle"></div>
+                <div class="seat" data-seat="2C" onclick="toggleSeat(this)">2C</div>
+                <div class="seat" data-seat="2D" onclick="toggleSeat(this)">2D</div>
+              </div>
+              <!-- Row 3 -->
+              <div class="seat-row">
+                <div class="seat" data-seat="3A" onclick="toggleSeat(this)">3A</div>
+                <div class="seat" data-seat="3B" onclick="toggleSeat(this)">3B</div>
+                <div class="aisle"></div>
+                <div class="seat" data-seat="3C" onclick="toggleSeat(this)">3C</div>
+                <div class="seat taken" data-seat="3D">3D</div>
+              </div>
+              <!-- Row 4 -->
+              <div class="seat-row">
+                <div class="seat" data-seat="4A" onclick="toggleSeat(this)">4A</div>
+                <div class="seat taken" data-seat="4B">4B</div>
+                <div class="aisle"></div>
+                <div class="seat" data-seat="4C" onclick="toggleSeat(this)">4C</div>
+                <div class="seat" data-seat="4D" onclick="toggleSeat(this)">4D</div>
+              </div>
+              <!-- Row 5 -->
+              <div class="seat-row">
+                <div class="seat taken" data-seat="5A">5A</div>
+                <div class="seat" data-seat="5B" onclick="toggleSeat(this)">5B</div>
+                <div class="aisle"></div>
+                <div class="seat taken" data-seat="5C">5C</div>
+                <div class="seat taken" data-seat="5D">5D</div>
+              </div>
+              <!-- Row 6 -->
+              <div class="seat-row">
+                <div class="seat" data-seat="6A" onclick="toggleSeat(this)">6A</div>
+                <div class="seat" data-seat="6B" onclick="toggleSeat(this)">6B</div>
+                <div class="aisle"></div>
+                <div class="seat" data-seat="6C" onclick="toggleSeat(this)">6C</div>
+                <div class="seat" data-seat="6D" onclick="toggleSeat(this)">6D</div>
+              </div>
+              <!-- Row 7 -->
+              <div class="seat-row">
+                <div class="seat" data-seat="7A" onclick="toggleSeat(this)">7A</div>
+                <div class="seat taken" data-seat="7B">7B</div>
+                <div class="aisle"></div>
+                <div class="seat" data-seat="7C" onclick="toggleSeat(this)">7C</div>
+                <div class="seat" data-seat="7D" onclick="toggleSeat(this)">7D</div>
+              </div>
+              <!-- Row 8 -->
+              <div class="seat-row">
+                <div class="seat taken" data-seat="8A">8A</div>
+                <div class="seat" data-seat="8B" onclick="toggleSeat(this)">8B</div>
+                <div class="aisle"></div>
+                <div class="seat" data-seat="8C" onclick="toggleSeat(this)">8C</div>
+                <div class="seat taken" data-seat="8D">8D</div>
+              </div>
+              <!-- Row 9 -->
+              <div class="seat-row">
+                <div class="seat" data-seat="9A" onclick="toggleSeat(this)">9A</div>
+                <div class="seat" data-seat="9B" onclick="toggleSeat(this)">9B</div>
+                <div class="aisle"></div>
+                <div class="seat" data-seat="9C" onclick="toggleSeat(this)">9C</div>
+                <div class="seat" data-seat="9D" onclick="toggleSeat(this)">9D</div>
+              </div>
+              <!-- Row 10 -->
+              <div class="seat-row">
+                <div class="seat" data-seat="10A" onclick="toggleSeat(this)">10A</div>
+                <div class="seat" data-seat="10B" onclick="toggleSeat(this)">10B</div>
+                <div class="aisle"></div>
+                <div class="seat" data-seat="10C" onclick="toggleSeat(this)">10C</div>
+                <div class="seat" data-seat="10D" onclick="toggleSeat(this)">10D</div>
+              </div>
+              <!-- Back row (5 seats) -->
+              <div class="seat-row" style="margin-top:0.5rem;">
+                <div class="seat" data-seat="11A" onclick="toggleSeat(this)">11A</div>
+                <div class="seat" data-seat="11B" onclick="toggleSeat(this)">11B</div>
+                <div class="seat taken" data-seat="11C">11C</div>
+                <div class="seat" data-seat="11D" onclick="toggleSeat(this)">11D</div>
+                <div class="seat" data-seat="11E" onclick="toggleSeat(this)">11E</div>
+              </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="seat-legend justify-content-center">
+              <div class="seat-legend-item">
+                <div class="seat-sample available"></div>
+                <span>Available</span>
+              </div>
+              <div class="seat-legend-item">
+                <div class="seat-sample selected-sample"></div>
+                <span>Selected</span>
+              </div>
+              <div class="seat-legend-item">
+                <div class="seat-sample taken-sample"></div>
+                <span>Taken</span>
+              </div>
+            </div>
+
+            <!-- Seat Type Info -->
+            <div class="mt-4 p-3" style="background:#f8fafc;border-radius:var(--radius);border:1px solid var(--border-light);">
+              <div class="row g-3 text-center">
+                <div class="col-4">
+                  <div style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">
+                    <i data-lucide="move-horizontal" style="width:16px;height:16px;display:inline;vertical-align:-3px;color:var(--primary);"></i>
+                    Window
+                  </div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Seats A & D</div>
+                </div>
+                <div class="col-4">
+                  <div style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">
+                    <i data-lucide="move-vertical" style="width:16px;height:16px;display:inline;vertical-align:-3px;color:var(--accent);"></i>
+                    Aisle
+                  </div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Seats B & C</div>
+                </div>
+                <div class="col-4">
+                  <div style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">
+                    <i data-lucide="sofa" style="width:16px;height:16px;display:inline;vertical-align:-3px;color:var(--success);"></i>
+                    Back Row
+                  </div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Row 11 (5 seats)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trip Summary Sidebar -->
+        <div class="col-lg-4">
+          <div class="trip-summary">
+            <h5 class="fw-700">Trip Summary</h5>
+
+            <div class="summary-route">
+              <div style="width:40px;height:40px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                <i data-lucide="bus" style="width:20px;height:20px;color:var(--primary);"></i>
+              </div>
+              <div>
+                <div style="font-weight:700;font-size:0.95rem;color:var(--text-dark);">GreenLine Express</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">Standard Class</div>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-3 mb-3 pb-3" style="border-bottom:1px solid var(--border);">
+              <div>
+                <div style="font-weight:700;color:var(--text-dark);">07:00</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">New York</div>
+              </div>
+              <div class="flex-grow-1 text-center">
+                <div style="font-size:0.75rem;color:var(--text-muted);">4h 15m</div>
+                <div style="height:2px;background:var(--border);position:relative;">
+                  <div style="position:absolute;left:0;top:-3px;width:8px;height:8px;background:var(--primary);border-radius:50%;"></div>
+                  <div style="position:absolute;right:0;top:-3px;width:8px;height:8px;background:var(--accent);border-radius:50%;"></div>
+                </div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">Direct</div>
+              </div>
+              <div class="text-end">
+                <div style="font-weight:700;color:var(--text-dark);">11:15</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">Washington</div>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 mb-3" style="font-size:0.9rem;">
+              <i data-lucide="calendar" style="width:16px;height:16px;color:var(--text-muted);"></i>
+              <span id="summaryDate">Sat, Mar 7, 2026</span>
+            </div>
+            <div class="d-flex align-items-center gap-2 mb-3" style="font-size:0.9rem;">
+              <i data-lucide="users" style="width:16px;height:16px;color:var(--text-muted);"></i>
+              <span>1 Passenger</span>
+            </div>
+
+            <div class="mb-3">
+              <div style="font-size:0.85rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Selected Seats</div>
+              <div id="selectedSeatsList" style="min-height:36px;">
+                <span class="text-muted" style="font-size:0.9rem;" id="noSeatMsg">No seat selected yet</span>
+              </div>
+            </div>
+
+            <div class="summary-row">
+              <span>Base fare</span>
+              <span>$25.00</span>
+            </div>
+            <div class="summary-row" id="seatFeeRow" style="display:none;">
+              <span>Seat selection</span>
+              <span id="seatFee">$0.00</span>
+            </div>
+            <div class="summary-row">
+              <span>Service fee</span>
+              <span>$2.50</span>
+            </div>
+            <div class="summary-row total">
+              <span>Total</span>
+              <span id="totalPrice">$27.50</span>
+            </div>
+
+            <a href="checkout.html" class="btn btn-primary-busgo w-100 mt-3 py-3 justify-content-center" id="continueBtn" style="pointer-events:none;opacity:0.5;">
+              Continue to Checkout
+              <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+            </a>
+            <a href="search-results.html" class="btn btn-ghost w-100 mt-2 justify-content-center" style="font-size:0.9rem;">
+              <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+              Back to results
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    var selectedSeats = [];
+    var baseFare = 25.00;
+    var serviceFee = 2.50;
+    var seatSelectionFee = 2.00;
+
+    function toggleSeat(el) {
+      var seatId = el.getAttribute('data-seat');
+      if (el.classList.contains('taken')) return;
+
+      if (el.classList.contains('selected')) {
+        el.classList.remove('selected');
+        selectedSeats = selectedSeats.filter(function(s) { return s !== seatId; });
+      } else {
+        if (selectedSeats.length >= 4) {
+          showToast('Maximum 4 seats can be selected', 'warning');
+          return;
+        }
+        el.classList.add('selected');
+        selectedSeats.push(seatId);
+      }
+      updateSummary();
+    }
+
+    function updateSummary() {
+      var listEl = document.getElementById('selectedSeatsList');
+      var noMsg = document.getElementById('noSeatMsg');
+      var continueBtn = document.getElementById('continueBtn');
+      var seatFeeRow = document.getElementById('seatFeeRow');
+      var seatFeeEl = document.getElementById('seatFee');
+      var totalEl = document.getElementById('totalPrice');
+
+      if (selectedSeats.length === 0) {
+        listEl.innerHTML = '<span class="text-muted" style="font-size:0.9rem;" id="noSeatMsg">No seat selected yet</span>';
+        continueBtn.style.pointerEvents = 'none';
+        continueBtn.style.opacity = '0.5';
+        seatFeeRow.style.display = 'none';
+      } else {
+        var html = '';
+        selectedSeats.forEach(function(seat) {
+          var isWindow = seat.endsWith('A') || seat.endsWith('D');
+          var type = isWindow ? 'Window' : 'Aisle';
+          html += '<div class="d-flex align-items-center justify-content-between mb-1">' +
+            '<div class="d-flex align-items-center gap-2">' +
+              '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:var(--primary);color:#fff;border-radius:6px;font-size:0.75rem;font-weight:700;">' + seat + '</span>' +
+              '<span style="font-size:0.85rem;color:var(--text-body);">Seat ' + seat + ' <span style="color:var(--text-muted);">(' + type + ')</span></span>' +
+            '</div>' +
+            '<span style="font-size:0.85rem;font-weight:600;color:var(--accent);">+$' + seatSelectionFee.toFixed(2) + '</span>' +
+          '</div>';
+        });
+        listEl.innerHTML = html;
+        continueBtn.style.pointerEvents = 'auto';
+        continueBtn.style.opacity = '1';
+        seatFeeRow.style.display = 'flex';
+        seatFeeEl.textContent = '$' + (selectedSeats.length * seatSelectionFee).toFixed(2);
+      }
+
+      var total = baseFare + serviceFee + (selectedSeats.length * seatSelectionFee);
+      totalEl.textContent = '$' + total.toFixed(2);
+
+      if (typeof lucide !== 'undefined') { lucide.createIcons(); }
+    }
+  </script>
+</body>
+</html>
