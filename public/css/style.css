@@ -1,5 +1,5 @@
 /* ============================================
-   BusGo — Bus Ticket Reservation System
+   HamsiBus — Bus Ticket Reservation System
    Shared Stylesheet
    ============================================ */
 
@@ -56,7 +56,7 @@ h1, h2, h3, h4, h5, h6 {
 a { text-decoration: none; transition: var(--transition); }
 
 /* ── Navbar ── */
-.navbar-busgo {
+.navbar-HamsiBus {
   background: var(--bg-white);
   border-bottom: 1px solid var(--border);
   padding: 0.75rem 0;
@@ -65,7 +65,7 @@ a { text-decoration: none; transition: var(--transition); }
   top: 0;
   z-index: 1040;
 }
-.navbar-busgo .navbar-brand {
+.navbar-HamsiBus .navbar-brand {
   font-weight: 800;
   font-size: 1.5rem;
   color: var(--primary);
@@ -73,22 +73,22 @@ a { text-decoration: none; transition: var(--transition); }
   align-items: center;
   gap: 0.5rem;
 }
-.navbar-busgo .navbar-brand i { color: var(--accent); }
-.navbar-busgo .nav-link {
+.navbar-HamsiBus .navbar-brand i { color: var(--accent); }
+.navbar-HamsiBus .nav-link {
   color: var(--text-body);
   font-weight: 500;
   padding: 0.5rem 1rem !important;
   border-radius: var(--radius-sm);
   transition: var(--transition);
 }
-.navbar-busgo .nav-link:hover,
-.navbar-busgo .nav-link.active {
+.navbar-HamsiBus .nav-link:hover,
+.navbar-HamsiBus .nav-link.active {
   color: var(--primary);
   background: var(--primary-bg);
 }
 
 /* ── Buttons ── */
-.btn-primary-busgo {
+.btn-primary-HamsiBus {
   background: var(--accent);
   color: #fff;
   border: none;
@@ -100,13 +100,13 @@ a { text-decoration: none; transition: var(--transition); }
   align-items: center;
   gap: 0.5rem;
 }
-.btn-primary-busgo:hover {
+.btn-primary-HamsiBus:hover {
   background: var(--accent-dark);
   color: #fff;
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
-.btn-secondary-busgo {
+.btn-secondary-HamsiBus {
   background: var(--primary);
   color: #fff;
   border: none;
@@ -118,13 +118,13 @@ a { text-decoration: none; transition: var(--transition); }
   align-items: center;
   gap: 0.5rem;
 }
-.btn-secondary-busgo:hover {
+.btn-secondary-HamsiBus:hover {
   background: var(--primary-dark);
   color: #fff;
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
-.btn-outline-busgo {
+.btn-outline-HamsiBus {
   background: transparent;
   color: var(--primary);
   border: 2px solid var(--primary);
@@ -136,7 +136,7 @@ a { text-decoration: none; transition: var(--transition); }
   align-items: center;
   gap: 0.5rem;
 }
-.btn-outline-busgo:hover {
+.btn-outline-HamsiBus:hover {
   background: var(--primary);
   color: #fff;
 }
@@ -155,7 +155,7 @@ a { text-decoration: none; transition: var(--transition); }
 }
 
 /* ── Cards ── */
-.card-busgo {
+.card-HamsiBus {
   background: var(--bg-white);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -163,11 +163,11 @@ a { text-decoration: none; transition: var(--transition); }
   transition: var(--transition);
   overflow: hidden;
 }
-.card-busgo:hover {
+.card-HamsiBus:hover {
   box-shadow: var(--shadow-md);
   border-color: #cbd5e1;
 }
-.card-busgo .card-body { padding: 1.25rem; }
+.card-HamsiBus .card-body { padding: 1.25rem; }
 
 /* ── Hero Section ── */
 .hero-section {
@@ -1076,12 +1076,12 @@ a { text-decoration: none; transition: var(--transition); }
 }
 
 /* ── Footer ── */
-.footer-busgo {
+.footer-HamsiBus {
   background: var(--primary-dark);
   color: rgba(255,255,255,0.7);
   padding: 4rem 0 2rem;
 }
-.footer-busgo h6 {
+.footer-HamsiBus h6 {
   color: #fff;
   font-weight: 700;
   margin-bottom: 1rem;
@@ -1089,21 +1089,21 @@ a { text-decoration: none; transition: var(--transition); }
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.footer-busgo a {
+.footer-HamsiBus a {
   color: rgba(255,255,255,0.6);
   font-size: 0.9rem;
   display: block;
   margin-bottom: 0.5rem;
 }
-.footer-busgo a:hover { color: #fff; }
-.footer-busgo .footer-bottom {
+.footer-HamsiBus a:hover { color: #fff; }
+.footer-HamsiBus .footer-bottom {
   border-top: 1px solid rgba(255,255,255,0.1);
   padding-top: 1.5rem;
   margin-top: 3rem;
 }
 
 /* ── Pagination ── */
-.pagination-busgo .page-link {
+.pagination-HamsiBus .page-link {
   border: 1px solid var(--border);
   color: var(--text-body);
   font-weight: 600;
@@ -1112,12 +1112,12 @@ a { text-decoration: none; transition: var(--transition); }
   margin: 0 0.15rem;
   transition: var(--transition);
 }
-.pagination-busgo .page-link:hover {
+.pagination-HamsiBus .page-link:hover {
   background: var(--primary-bg);
   border-color: var(--primary-light);
   color: var(--primary);
 }
-.pagination-busgo .page-item.active .page-link {
+.pagination-HamsiBus .page-item.active .page-link {
   background: var(--primary);
   border-color: var(--primary);
   color: #fff;
@@ -1182,10 +1182,10 @@ a { text-decoration: none; transition: var(--transition); }
 /* ── Misc ── */
 .text-accent { color: var(--accent); }
 .bg-accent { background: var(--accent); }
-.text-primary-busgo { color: var(--primary); }
-.bg-primary-busgo { background: var(--primary); }
+.text-primary-HamsiBus { color: var(--primary); }
+.bg-primary-HamsiBus { background: var(--primary); }
 .bg-primary-bg { background: var(--primary-bg); }
-.border-primary-busgo { border-color: var(--primary) !important; }
+.border-primary-HamsiBus { border-color: var(--primary) !important; }
 .fw-800 { font-weight: 800; }
 .gap-3 { gap: 1rem; }
 .cursor-pointer { cursor: pointer; }

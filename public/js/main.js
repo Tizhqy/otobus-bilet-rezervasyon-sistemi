@@ -1,5 +1,5 @@
 /* ============================================
-   BusGo — Shared Application JavaScript
+   HamsiBus — Shared Application JavaScript
    ============================================ */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Navbar active link
   const currentPage = window.location.pathname.split('/').pop();
-  document.querySelectorAll('.navbar-busgo .nav-link').forEach(function (link) {
+  document.querySelectorAll('.navbar-HamsiBus .nav-link').forEach(function (link) {
     const href = link.getAttribute('href');
     if (href === currentPage) {
       link.classList.add('active');

@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Checkout — BusGo</title>
+  <title>Checkout — HamsiBus</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -14,11 +14,11 @@
   <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999;"></div>
 
   <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-busgo">
+  <nav class="navbar navbar-expand-lg navbar-HamsiBus">
     <div class="container">
       <a class="navbar-brand" href="/Views/home/index.html">
         <i data-lucide="bus" style="width:28px;height:28px;"></i>
-        BusGo
+        HamsiBus
       </a>
       <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
         <i data-lucide="menu" style="width:24px;height:24px;"></i>
@@ -31,7 +31,7 @@
         </ul>
         <div class="d-flex align-items-center gap-2">
           <a href="/Views/auth/login.html" class="btn btn-ghost">Log In</a>
-          <a href="/Views/auth/register.html" class="btn btn-primary-busgo">Sign Up</a>
+          <a href="/Views/auth/register.html" class="btn btn-primary-HamsiBus">Sign Up</a>
         </div>
       </div>
     </div>
@@ -69,7 +69,7 @@
         <!-- Checkout Form -->
         <div class="col-lg-8">
           <!-- Passenger Info -->
-          <div class="card-busgo mb-4">
+          <div class="card-HamsiBus mb-4">
             <div class="card-body p-4 checkout-form">
               <div class="d-flex align-items-center gap-2 mb-4">
                 <div style="width:36px;height:36px;background:var(--primary-bg);border-radius:8px;display:flex;align-items:center;justify-content:center;">
@@ -126,7 +126,7 @@
           </div>
 
           <!-- Special Requests -->
-          <div class="card-busgo mb-4">
+          <div class="card-HamsiBus mb-4">
             <div class="card-body p-4 checkout-form">
               <div class="d-flex align-items-center gap-2 mb-4">
                 <div style="width:36px;height:36px;background:rgba(230,126,34,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;">
@@ -153,7 +153,7 @@
           </div>
 
           <!-- Payment Method -->
-          <div class="card-busgo mb-4">
+          <div class="card-HamsiBus mb-4">
             <div class="card-body p-4 checkout-form">
               <div class="d-flex align-items-center gap-2 mb-4">
                 <div style="width:36px;height:36px;background:var(--success-bg);border-radius:8px;display:flex;align-items:center;justify-content:center;">
@@ -289,7 +289,7 @@
               <span>$29.50</span>
             </div>
 
-            <button class="btn btn-primary-busgo w-100 mt-3 py-3 justify-content-center" id="payBtn" onclick="handlePayment()">
+            <button class="btn btn-primary-HamsiBus w-100 mt-3 py-3 justify-content-center" id="payBtn" onclick="handlePayment()">
               <i data-lucide="lock" style="width:18px;height:18px;"></i>
               Pay $29.50
             </button>
@@ -308,12 +308,12 @@
           </div>
 
           <!-- Promo Code -->
-          <div class="card-busgo mt-3">
+          <div class="card-HamsiBus mt-3">
             <div class="card-body">
               <div style="font-weight:600;font-size:0.9rem;color:var(--text-dark);margin-bottom:0.5rem;">Have a promo code?</div>
               <div class="d-flex gap-2">
                 <input type="text" class="form-control" placeholder="Enter code" style="border:2px solid var(--border);border-radius:var(--radius);padding:0.6rem 1rem;font-size:0.9rem;">
-                <button class="btn btn-outline-busgo" style="white-space:nowrap;">Apply</button>
+                <button class="btn btn-outline-HamsiBus" style="white-space:nowrap;">Apply</button>
               </div>
             </div>
           </div>
@@ -337,11 +337,11 @@
             <div style="font-size:1.5rem;font-weight:800;color:var(--primary);letter-spacing:2px;">BG-2026-4857</div>
           </div>
           <div class="d-flex gap-2">
-            <a href="/Views/dashboard/dashboard.html" class="btn btn-secondary-busgo flex-grow-1 justify-content-center">
+            <a href="/Views/dashboard/dashboard.html" class="btn btn-secondary-HamsiBus flex-grow-1 justify-content-center">
               <i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i>
               My Trips
             </a>
-            <a href="/Views/home/index.html" class="btn btn-outline-busgo flex-grow-1 justify-content-center">
+            <a href="/Views/home/index.html" class="btn btn-outline-HamsiBus flex-grow-1 justify-content-center">
               <i data-lucide="home" style="width:16px;height:16px;"></i>
               Home
             </a>
