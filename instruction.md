@@ -37,6 +37,34 @@ DTOs/
     SearchQueryDto.cs
     DepartureResponseDto.cs
 
+Services/
+  Interfaces/
+    IAuthService.cs
+    ITicketService.cs
+    ISearchService.cs
+    ILogService.cs
+  AuthService.cs
+  TicketService.cs
+  SearchService.cs
+  LogService.cs
+
+Repositories/
+  Interfaces/
+    IUserRepository.cs
+    ITicketRepository.cs
+    IDepartureRepository.cs
+    ISeatRepository.cs
+  UserRepository.cs
+  TicketRepository.cs
+  DepartureRepository.cs
+  SeatRepository.cs
+
+Controllers/
+  AuthController.cs
+  SearchController.cs
+  TicketController.cs
+  AdminController.cs
+  DashboardController.cs
 Requirements:
 
 Use Entity Framework Core for database access
@@ -49,22 +77,4 @@ Include DbContext class (AppDbContext.cs)
 Add dependency injection setup for Program.cs
 Follow C# naming conventions
 
-Start with the Models first, then DTOs
-
-Create only the Model classes and DTOs for a Bus Ticket Reservation System in ASP.NET Core with Entity Framework Core + MySQL.
-Models folder (Models/):
-Role, User, Station, Route, RouteStation, Bus, Departure, Seat, Ticket, Passenger, Payment, Log, PasswordReset
-DTOs folder (DTOs/):
-
-Auth/LoginDto.cs, RegisterDto.cs, AuthResponseDto.cs
-Ticket/CreateTicketDto.cs, TicketResponseDto.cs
-Search/SearchQueryDto.cs, DepartureResponseDto.cs
-
-Also create AppDbContext.cs in the root.
-Requirements:
-
-Proper data annotations
-Navigation properties between entities
-Pomelo.EntityFrameworkCore.MySql
-No services, no controllers, no repositories — just models and DTOs.
-
+Start with the Models first, then DTOs, then Interfaces, then implementations.
