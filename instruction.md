@@ -78,3 +78,28 @@ Add dependency injection setup for Program.cs
 Follow C# naming conventions
 
 Start with the Models first, then DTOs, then Interfaces, then implementations.
+
+The Models, DTOs, Services and Repositories are already created. Now create only the **Controllers** for the Bus Ticket Reservation System in ASP.NET Core.
+```
+Controllers/
+  AuthController.cs
+  SearchController.cs
+  TicketController.cs
+  DashboardController.cs
+  AdminController.cs
+
+  Requirements:
+
+Controllers only handle HTTP requests and call service methods
+No business logic in controllers
+No direct DB access
+Use dependency injection for services
+AuthController: Login, Register, Logout, ForgotPassword, ResetPassword endpoints
+SearchController: Search departures by origin/destination/date
+TicketController: Purchase ticket, view ticket, cancel ticket
+DashboardController: User's tickets and profile (authenticated users only)
+AdminController: CRUD for buses, routes, departures, users (admin role only)
+Add proper route attributes
+Add JWT authorization attributes where needed
+Return proper HTTP status codes
+Do NOT create views yet
