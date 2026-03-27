@@ -77,6 +77,10 @@ ASP.NET Core ve MySQL kullanilarak gelistirilen kapsamli bir otobus bilet rezerv
 └── instruction.md              # Proje talimatlari
 ```
 
+## Veritabani Semasi
+
+![Veritabani ER Diyagrami](db_semasi_beyaz.svg)
+
 ## Veritabani Tablolari
 
 | Tablo | Aciklama |
