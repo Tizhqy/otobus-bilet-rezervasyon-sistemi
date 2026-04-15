@@ -21,7 +21,7 @@ namespace OtobusBiletRezervasyon.Services
             var departures = await _departureRepository.SearchAsync(
                 searchQuery.OriginStationId,
                 searchQuery.DestinationStationId,
-                searchQuery.Date
+                searchQuery.TravelDate
             );
 
             var result = new List<DepartureResponseDto>();

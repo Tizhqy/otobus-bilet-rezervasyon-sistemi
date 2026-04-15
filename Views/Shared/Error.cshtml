@@ -1,0 +1,27 @@
+@{
+    ViewData["Title"] = "Hata";
+}
+
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-6 text-center">
+                <div style="width:80px;height:80px;background:var(--danger-bg, #fee2e2);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;">
+                    <i data-lucide="alert-triangle" style="width:36px;height:36px;color:var(--danger, #ef4444);"></i>
+                </div>
+                <h2 style="font-weight:800;margin-bottom:0.5rem;">Bir hata olustu</h2>
+                <p class="text-muted mb-4">Uzgunuz, bir seyler ters gitti. Lutfen tekrar deneyin veya ana sayfaya donun.</p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a asp-controller="Sefer" asp-action="Index" class="btn btn-primary-HamsiBus px-4 py-2">
+                        <i data-lucide="home" style="width:18px;height:18px;"></i>
+                        Ana Sayfa
+                    </a>
+                    <button onclick="history.back()" class="btn btn-ghost px-4 py-2">
+                        <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
+                        Geri Don
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

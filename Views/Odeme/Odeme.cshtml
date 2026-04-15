@@ -1,0 +1,103 @@
+@model OtobusBiletRezervasyon.DTOs.Ticket.TicketResponseDto
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Odeme";
+    var kalanSaniye = ViewBag.KalanSaniye as int? ?? 0;
+}
+
+<section class="py-4">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card-HamsiBus">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="mb-0">Complete Payment</h4>
+                            <span class="badge text-bg-warning" id="countdownBadge">Time left: @kalanSaniye s</span>
+                        </div>
+
+                        @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+                        <form asp-controller="Odeme" asp-action="Tamamla" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="biletId" value="@Model.Id" />
+
+                            <div class="mb-3">
+                                <label class="form-label">Odeme Yontemi</label>
+                                <select class="form-select" name="odemeYontemi" required>
+                                    <option value="CreditCard">Credit Card</option>
+                                    <option value="DebitCard">Debit Card</option>
+                                    <option value="Paypal">PayPal</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Kart Numarasi</label>
+                                <input type="text" class="form-control" name="kartNo" placeholder="1234 5678 9012 3456" required />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Kart Sahibi</label>
+                                <input type="text" class="form-control" name="kartSahibi" placeholder="John Smith" required />
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Son Kullanma</label>
+                                    <input type="text" class="form-control" name="sonKullanma" placeholder="MM/YY" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">CVV</label>
+                                    <input type="text" class="form-control" name="cvv" placeholder="123" required />
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary-HamsiBus mt-4">
+                                <i data-lucide="lock" style="width:16px;height:16px;"></i>
+                                Odemeyi Tamamla
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="trip-summary">
+                    <h5 class="fw-700">Ticket Summary</h5>
+                    <div class="summary-row">
+                        <span>Route</span>
+                        <span>@Model.Departure.OriginCity - @Model.Departure.DestinationCity</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Date</span>
+                        <span>@Model.Departure.DepartureTime.ToString("dd MMM yyyy HH:mm")</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Seat(s)</span>
+                        <span>@string.Join(", ", Model.Passengers.Select(p => p.SeatNumber))</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total</span>
+                        <span>$@Model.TotalPrice.ToString("0.00")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        (function () {
+            let seconds = @kalanSaniye;
+            const badge = document.getElementById("countdownBadge");
+            if (!badge || seconds <= 0) return;
+
+            const timer = setInterval(function () {
+                seconds--;
+                badge.textContent = "Time left: " + seconds + " s";
+                if (seconds <= 0) {
+                    clearInterval(timer);
+                    window.location.href = '@Url.Action("Basarisiz", "Odeme", new { biletId = Model.Id })';
+                }
+            }, 1000);
+        })();
+    </script>
+}
+

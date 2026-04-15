@@ -1,0 +1,92 @@
+@model OtobusBiletRezervasyon.DTOs.Ticket.TicketResponseDto
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Bilet Detay";
+}
+
+<section class="py-4">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card-HamsiBus">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h4 class="mb-0">Ticket #@Model.Id</h4>
+                            <span class="trip-status @(Model.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase) ? "status-cancelled" : "status-upcoming")">
+                                @Model.Status
+                            </span>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;">Route</div>
+                                <div style="font-weight:600;color:var(--text-dark);">@Model.Departure.OriginCity - @Model.Departure.DestinationCity</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;">Bus</div>
+                                <div style="font-weight:600;color:var(--text-dark);">@Model.Departure.BusPlateNumber</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;">Departure</div>
+                                <div style="font-weight:600;color:var(--text-dark);">@Model.Departure.DepartureTime.ToString("dd MMM yyyy HH:mm")</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;">Arrival</div>
+                                <div style="font-weight:600;color:var(--text-dark);">@Model.Departure.ArrivalTime.ToString("dd MMM yyyy HH:mm")</div>
+                            </div>
+                        </div>
+
+                        <hr />
+                        <h6 class="fw-700 mb-3">Passengers</h6>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Seat</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in Model.Passengers)
+                                    {
+                                        <tr>
+                                            <td>@p.FirstName @p.LastName</td>
+                                            <td>@p.SeatNumber</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="trip-summary">
+                    <h5 class="fw-700">Payment Summary</h5>
+                    <div class="summary-row">
+                        <span>Total</span>
+                        <span>$@Model.TotalPrice.ToString("0.00")</span>
+                    </div>
+                    @if (Model.Payment != null)
+                    {
+                        <div class="summary-row">
+                            <span>Method</span>
+                            <span>@Model.Payment.Method</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Status</span>
+                            <span>@Model.Payment.Status</span>
+                        </div>
+                    }
+                    <div class="summary-row">
+                        <span>Created</span>
+                        <span>@Model.CreatedAt.ToString("dd MMM yyyy HH:mm")</span>
+                    </div>
+                    <a asp-controller="Bilet" asp-action="Liste" class="btn btn-outline-HamsiBus w-100 mt-3">Back to list</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+

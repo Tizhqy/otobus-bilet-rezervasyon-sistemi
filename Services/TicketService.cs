@@ -80,7 +80,7 @@ namespace OtobusBiletRezervasyon.Services
                     UserId = userId,
                     DepartureId = createTicketDto.DepartureId,
                     TotalPrice = totalPrice,
-                    Status = TicketStatus.Confirmed
+                    Status = TicketStatus.Pending
                 };
 
                 await _ticketRepository.CreateAsync(ticket);
@@ -159,10 +159,11 @@ namespace OtobusBiletRezervasyon.Services
                     throw new InvalidOperationException("Ticket is already cancelled.");
                 }
 
-                // Can't cancel tickets for past departures
-                if (ticket.Departure.DepartureTime <= DateTime.Now)
+                // Can't cancel tickets when departure is too close
+                var minutesUntilDeparture = (ticket.Departure.DepartureTime - DateTime.Now).TotalMinutes;
+                if (minutesUntilDeparture <= AppConfig.MinCancellationMinutesBeforeDeparture)
                 {
-                    throw new InvalidOperationException("Cannot cancel tickets for past departures.");
+                    return false;
                 }
 
                 // Release all seats
@@ -190,6 +191,18 @@ namespace OtobusBiletRezervasyon.Services
             }
         }
 
+        public async Task<bool> ConfirmTicketAsync(int ticketId)
+        {
+            var ticket = await _ticketRepository.GetByIdWithDetailsAsync(ticketId);
+            if (ticket == null) return false;
+
+            if (ticket.Status != TicketStatus.Pending)
+                return false;
+
+            await _ticketRepository.UpdateStatusAsync(ticketId, TicketStatus.Confirmed);
+            return true;
+        }
+
         public async Task<bool> IsSeatAvailableAsync(int departureId, int seatId)
         {
             var seat = await _seatRepository.GetByIdAsync(seatId);
@@ -215,6 +228,7 @@ namespace OtobusBiletRezervasyon.Services
             return new TicketResponseDto
             {
                 Id = ticket.Id,
+                UserId = ticket.UserId,
                 Status = ticket.Status.ToString(),
                 TotalPrice = ticket.TotalPrice,
                 CreatedAt = ticket.CreatedAt,

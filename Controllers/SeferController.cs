@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using OtobusBiletRezervasyon.DTOs.Search;
+using OtobusBiletRezervasyon.DTOs.ViewModels;
 using OtobusBiletRezervasyon.Services.Interfaces;
 
 namespace OtobusBiletRezervasyon.Controllers
@@ -24,7 +25,23 @@ namespace OtobusBiletRezervasyon.Controllers
             ViewBag.Istasyonlar = stations;
             ViewBag.YaklasanSeferler = upcomingDepartures;
 
-            return View();
+            return View(new SearchQueryDto
+            {
+                TravelDate = DateTime.Today.AddDays(1),
+                PassengerCount = 1
+            });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> AramaSonuclari()
+        {
+            ViewBag.Istasyonlar = await _searchService.GetAllStationsAsync();
+            ViewBag.AramaKriterleri = new SearchQueryDto
+            {
+                TravelDate = DateTime.Today,
+                PassengerCount = 1
+            };
+            return View(Enumerable.Empty<DepartureResponseDto>());
         }
 
         #endregion
@@ -91,9 +108,13 @@ namespace OtobusBiletRezervasyon.Controllers
             }
 
             var seats = await _searchService.GetSeatsForDepartureAsync(id);
+            var model = new SeferDetayViewModel
+            {
+                Sefer = departure,
+                Seats = seats.ToList()
+            };
 
-            ViewBag.Koltuklar = seats;
-            return View(departure);
+            return View(model);
         }
 
         #endregion

@@ -1,0 +1,169 @@
+@model IEnumerable<OtobusBiletRezervasyon.DTOs.Search.DepartureResponseDto>
+@using OtobusBiletRezervasyon.DTOs.Search
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Arama Sonuclari";
+    var kriter = ViewBag.AramaKriterleri as SearchQueryDto ?? new SearchQueryDto { TravelDate = DateTime.Today, PassengerCount = 1 };
+    var kalkis = ViewBag.KalkisIstasyonu as StationInfoDto;
+    var varis = ViewBag.VarisIstasyonu as StationInfoDto;
+}
+
+<div style="background:var(--primary);padding:1rem 0;">
+    <div class="container">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-3">
+                <div class="d-flex align-items-center gap-2" style="color:#fff;">
+                    <i data-lucide="map-pin" style="width:16px;height:16px;opacity:0.7;"></i>
+                    <div>
+                        <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">From</div>
+                        <div style="font-weight:700;">@(kalkis?.City ?? "-")</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-auto d-none d-md-block">
+                <i data-lucide="arrow-right" style="width:20px;height:20px;color:rgba(255,255,255,0.4);"></i>
+            </div>
+            <div class="col-md-3">
+                <div class="d-flex align-items-center gap-2" style="color:#fff;">
+                    <i data-lucide="map-pin" style="width:16px;height:16px;opacity:0.7;"></i>
+                    <div>
+                        <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">To</div>
+                        <div style="font-weight:700;">@(varis?.City ?? "-")</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="d-flex align-items-center gap-2" style="color:#fff;">
+                    <i data-lucide="calendar" style="width:16px;height:16px;opacity:0.7;"></i>
+                    <div>
+                        <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">Date</div>
+                        <div style="font-weight:700;">@kriter.TravelDate.ToString("dd MMM yyyy")</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="d-flex align-items-center gap-2" style="color:#fff;">
+                    <i data-lucide="users" style="width:16px;height:16px;opacity:0.7;"></i>
+                    <div>
+                        <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">Passengers</div>
+                        <div style="font-weight:700;">@kriter.PassengerCount Adult</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-1 text-end">
+                <a asp-controller="Sefer" asp-action="Index" class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-radius:8px;">
+                    <i data-lucide="pencil" style="width:16px;height:16px;"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="py-4">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-3">
+                <div class="filter-section mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="mb-0 h6 fw-700" style="color:var(--text-dark);">Filters</h5>
+                        <button class="btn btn-sm btn-ghost" type="button" style="font-size:0.8rem;color:var(--accent);" onclick="resetFilters()">Reset all</button>
+                    </div>
+                    <h6>Price Range</h6>
+                    <input type="range" class="form-range" min="10" max="200" value="200" id="priceRange" oninput="updatePriceLabel(this.value)">
+                    <div class="price-range-display">
+                        <span>$10</span>
+                        <span id="priceLabel">Up to $200</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-9">
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
+                    <div>
+                        <span class="fw-700" style="color:var(--text-dark);">@Model.Count() buses found</span>
+                        <span class="text-muted" style="font-size:0.9rem;"> &middot; @(kalkis?.City ?? "-") to @(varis?.City ?? "-")</span>
+                    </div>
+                </div>
+
+                <div id="resultsContainer">
+                    @if (!Model.Any())
+                    {
+                        <div class="empty-state card-HamsiBus">
+                            <div class="empty-icon">
+                                <i data-lucide="search-x" style="width:32px;height:32px;"></i>
+                            </div>
+                            <h5>No trips found</h5>
+                            <p>Try changing date or stations.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var sefer in Model)
+                        {
+                            <div class="result-card mb-3 fade-in">
+                                <div class="row align-items-center g-3">
+                                    <div class="col-md-7">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="operator-logo">
+                                                <i data-lucide="bus" style="width:22px;height:22px;"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                                    <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">@sefer.Bus.PlateNumber</span>
+                                                    <span class="seats-badge @(sefer.AvailableSeats <= 5 ? "seats-last" : sefer.AvailableSeats <= 10 ? "seats-few" : "seats-many")">
+                                                        @sefer.AvailableSeats seats left
+                                                    </span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <div>
+                                                        <div class="trip-time">@sefer.DepartureTime.ToString("HH:mm")</div>
+                                                        <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.OriginStation.City</div>
+                                                    </div>
+                                                    <div class="trip-line"><div class="line"></div></div>
+                                                    <div class="text-center">
+                                                        <div class="trip-duration">@((sefer.ArrivalTime - sefer.DepartureTime).Hours)h @((sefer.ArrivalTime - sefer.DepartureTime).Minutes)m</div>
+                                                        <div style="font-size:0.7rem;color:var(--text-muted);">Direct</div>
+                                                    </div>
+                                                    <div class="trip-line"><div class="line"></div></div>
+                                                    <div class="text-end">
+                                                        <div class="trip-time">@sefer.ArrivalTime.ToString("HH:mm")</div>
+                                                        <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.DestinationStation.City</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3">
+                                            <div class="text-md-end">
+                                                <div class="trip-price">$@sefer.Price.ToString("0.00")</div>
+                                                <div style="font-size:0.8rem;color:var(--text-muted);">per person</div>
+                                            </div>
+                                            <a asp-controller="Sefer" asp-action="Detay" asp-route-id="@sefer.Id" class="btn btn-primary-HamsiBus">
+                                                Select
+                                                <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        function updatePriceLabel(val) {
+            document.getElementById("priceLabel").textContent = "Up to $" + val;
+        }
+        function resetFilters() {
+            document.getElementById("priceRange").value = 200;
+            updatePriceLabel(200);
+        }
+    </script>
+}
+

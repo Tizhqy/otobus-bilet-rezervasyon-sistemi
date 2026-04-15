@@ -2,7 +2,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using OtobusBiletRezervasyon.DTOs.Auth;
 using OtobusBiletRezervasyon.Models;
@@ -15,11 +17,22 @@ namespace OtobusBiletRezervasyon.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly IConfiguration _configuration;
+        private readonly IEmailService _emailService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<AuthService> _logger;
 
-        public AuthService(IUserRepository userRepository, IConfiguration configuration)
+        public AuthService(
+            IUserRepository userRepository,
+            IConfiguration configuration,
+            IEmailService emailService,
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<AuthService> logger)
         {
             _userRepository = userRepository;
             _configuration = configuration;
+            _emailService = emailService;
+            _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto)
@@ -163,7 +176,7 @@ namespace OtobusBiletRezervasyon.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public async Task<int?> ValidateJwtTokenAsync(string token)
+        public Task<int?> ValidateJwtTokenAsync(string token)
         {
             try
             {
@@ -191,14 +204,14 @@ namespace OtobusBiletRezervasyon.Services
 
                 if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
                 {
-                    return userId;
+                    return Task.FromResult<int?>(userId);
                 }
 
-                return null;
+                return Task.FromResult<int?>(null);
             }
             catch
             {
-                return null;
+                return Task.FromResult<int?>(null);
             }
         }
 
@@ -267,16 +280,36 @@ namespace OtobusBiletRezervasyon.Services
             {
                 UserId = user.Id,
                 Token = token,
-                ExpiresAt = DateTime.Now.AddHours(1),
+                ExpiresAt = DateTime.UtcNow.AddHours(1),
                 Used = false
             };
 
             await _userRepository.CreatePasswordResetAsync(passwordReset);
 
-            // In a real application, send email with reset link here
-            // EmailService.SendPasswordResetEmail(user.Email, token);
+            var resetLink = BuildPasswordResetLink(token);
+            if (string.IsNullOrWhiteSpace(resetLink))
+            {
+                _logger.LogWarning("Sifre sifirlama baglantisi uretilemedi. App:BaseUrl ayarini kontrol edin.");
+                return false;
+            }
+
+            var mailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, resetLink);
+            if (!mailSent)
+            {
+                _logger.LogWarning("Sifre sifirlama e-postasi gonderilemedi. UserId={UserId}", user.Id);
+                return false;
+            }
 
             return true;
+        }
+
+        public async Task<bool> IsPasswordResetTokenValidAsync(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return false;
+
+            var passwordReset = await _userRepository.GetPasswordResetByTokenAsync(token);
+            return passwordReset != null;
         }
 
         public async Task<bool> ResetPasswordAsync(string token, string newPassword)
@@ -327,6 +360,25 @@ namespace OtobusBiletRezervasyon.Services
         {
             var hours = _configuration["Jwt:ExpirationHours"];
             return int.TryParse(hours, out int result) ? result : 24;
+        }
+
+        private string? BuildPasswordResetLink(string token)
+        {
+            var baseUrl = _configuration["App:BaseUrl"]?.TrimEnd('/');
+
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                var request = _httpContextAccessor.HttpContext?.Request;
+                if (request != null)
+                {
+                    baseUrl = $"{request.Scheme}://{request.Host}";
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                return null;
+
+            return $"{baseUrl}/Auth/SifreSifirla?token={Uri.EscapeDataString(token)}";
         }
     }
 }

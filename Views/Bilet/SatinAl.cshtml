@@ -1,0 +1,201 @@
+@model OtobusBiletRezervasyon.DTOs.Ticket.CreateTicketDto
+@using OtobusBiletRezervasyon.DTOs.Search
+@using OtobusBiletRezervasyon.DTOs.Ticket
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Satin Al";
+    if (!(User.Identity?.IsAuthenticated ?? false))
+    {
+        Context.Response.Redirect("/Auth/Giris");
+        return;
+    }
+
+    var sefer = ViewBag.Sefer as DepartureResponseDto;
+    var secilenKoltuk = ViewBag.SecilenKoltuk as SeatInfoDto;
+
+    Model.Passengers ??= new List<PassengerDto>();
+    if (!Model.Passengers.Any())
+    {
+        Model.Passengers.Add(new PassengerDto());
+    }
+    Model.Payment ??= new PaymentInfoDto();
+    if (secilenKoltuk != null && Model.Passengers[0].SeatId <= 0)
+    {
+        Model.Passengers[0].SeatId = secilenKoltuk.Id;
+    }
+    if (Model.Payment.Amount <= 0 && sefer != null)
+    {
+        Model.Payment.Amount = sefer.Price * Math.Max(1, Model.Passengers.Count);
+    }
+    if (string.IsNullOrWhiteSpace(Model.Payment.Method))
+    {
+        Model.Payment.Method = "CreditCard";
+    }
+    if (string.IsNullOrWhiteSpace(Model.Payment.TransactionId))
+    {
+        Model.Payment.TransactionId = Guid.NewGuid().ToString("N");
+    }
+}
+
+<div class="container">
+    <div class="progress-steps">
+        <div class="progress-step done">
+            <div class="step-number"><i data-lucide="check" style="width:16px;height:16px;"></i></div>
+            <span class="step-label">Search</span>
+        </div>
+        <div class="progress-step-line done"></div>
+        <div class="progress-step done">
+            <div class="step-number"><i data-lucide="check" style="width:16px;height:16px;"></i></div>
+            <span class="step-label">Select Seat</span>
+        </div>
+        <div class="progress-step-line done"></div>
+        <div class="progress-step active">
+            <div class="step-number">3</div>
+            <span class="step-label">Checkout</span>
+        </div>
+    </div>
+</div>
+
+<section class="pb-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <form asp-controller="Bilet" asp-action="SatinAl" method="post">
+                    @Html.AntiForgeryToken()
+                    @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
+
+                    <input asp-for="DepartureId" type="hidden" />
+                    <input asp-for="Passengers[0].SeatId" type="hidden" />
+                    <input asp-for="Payment.Method" type="hidden" id="paymentMethodInput" />
+                    <input asp-for="Payment.Amount" type="hidden" id="paymentAmountInput" />
+                    <input asp-for="Payment.TransactionId" type="hidden" />
+
+                    <div class="card-HamsiBus mb-4">
+                        <div class="card-body p-4 checkout-form">
+                            <div class="d-flex align-items-center gap-2 mb-4">
+                                <div style="width:36px;height:36px;background:var(--primary-bg);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                                    <i data-lucide="user" style="width:18px;height:18px;color:var(--primary);"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0 h6 fw-700">Passenger Information</h5>
+                                    <p class="text-muted mb-0" style="font-size:0.8rem;">Please enter details as they appear on your ID</p>
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label asp-for="Passengers[0].FirstName" class="form-label">First Name</label>
+                                    <input asp-for="Passengers[0].FirstName" class="form-control" placeholder="John" />
+                                    <span asp-validation-for="Passengers[0].FirstName" class="text-danger small"></span>
+                                </div>
+                                <div class="col-md-6">
+                                    <label asp-for="Passengers[0].LastName" class="form-label">Last Name</label>
+                                    <input asp-for="Passengers[0].LastName" class="form-control" placeholder="Smith" />
+                                    <span asp-validation-for="Passengers[0].LastName" class="text-danger small"></span>
+                                </div>
+                                <div class="col-md-6">
+                                    <label asp-for="Passengers[0].IdNumber" class="form-label">ID Number</label>
+                                    <input asp-for="Passengers[0].IdNumber" class="form-control" placeholder="ID number" />
+                                    <span asp-validation-for="Passengers[0].IdNumber" class="text-danger small"></span>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Selected Seat</label>
+                                    <input type="text" class="form-control" value="@(secilenKoltuk?.SeatNumber ?? "-")" readonly />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-HamsiBus mb-4">
+                        <div class="card-body p-4 checkout-form">
+                            <div class="d-flex align-items-center gap-2 mb-4">
+                                <div style="width:36px;height:36px;background:var(--success-bg);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                                    <i data-lucide="credit-card" style="width:18px;height:18px;color:var(--success);"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0 h6 fw-700">Payment Method</h5>
+                                    <p class="text-muted mb-0" style="font-size:0.8rem;">Choose payment method before continuing</p>
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-column gap-3">
+                                <button type="button" class="payment-option active text-start" onclick="selectPayment('CreditCard', this)">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i data-lucide="credit-card" style="width:20px;height:20px;color:var(--primary);"></i>
+                                        <div>Credit / Debit Card</div>
+                                    </div>
+                                </button>
+                                <button type="button" class="payment-option text-start" onclick="selectPayment('Paypal', this)">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i data-lucide="wallet" style="width:20px;height:20px;color:var(--accent);"></i>
+                                        <div>PayPal</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" id="agreeTerms" required />
+                        <label class="form-check-label" for="agreeTerms" style="font-size:0.9rem;">
+                            I agree to the Terms of Service and Cancellation Policy
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary-HamsiBus py-3 px-4">
+                        Continue to Payment
+                        <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+                    </button>
+                </form>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="trip-summary">
+                    <h5 class="fw-700">Order Summary</h5>
+                    @if (sefer != null)
+                    {
+                        <div class="summary-route">
+                            <div style="width:40px;height:40px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                                <i data-lucide="bus" style="width:20px;height:20px;color:var(--primary);"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:700;font-size:0.95rem;color:var(--text-dark);">@sefer.Bus.PlateNumber</div>
+                                <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Bus.Type</div>
+                            </div>
+                        </div>
+
+                        <div class="summary-row">
+                            <span>Route</span>
+                            <span>@sefer.Route.OriginStation.City - @sefer.Route.DestinationStation.City</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Date</span>
+                            <span>@sefer.DepartureTime.ToString("dd MMM yyyy HH:mm")</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Seat</span>
+                            <span>@(secilenKoltuk?.SeatNumber ?? "-")</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span>$@Model.Payment.Amount.ToString("0.00")</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        function selectPayment(method, buttonEl) {
+            document.querySelectorAll(".payment-option").forEach(function (el) {
+                el.classList.remove("active");
+            });
+            buttonEl.classList.add("active");
+            document.getElementById("paymentMethodInput").value = method;
+        }
+    </script>
+}
+

@@ -1,0 +1,205 @@
+@model OtobusBiletRezervasyon.DTOs.ViewModels.AdminDashboardViewModel
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Admin Dashboard";
+    if (!User.IsInRole("admin") && !User.IsInRole("Admin"))
+    {
+        Context.Response.Redirect("/");
+        return;
+    }
+}
+
+<section class="py-4">
+    <div class="container">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h3 class="mb-1">Admin Dashboard</h3>
+                <p class="text-muted mb-0">System overview and management tables</p>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:var(--primary-bg);color:var(--primary);">
+                        <i data-lucide="users" style="width:24px;height:24px;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value">@Model.Stats.TotalUsers</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:var(--success-bg);color:var(--success);">
+                        <i data-lucide="bus" style="width:24px;height:24px;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value">@Model.Stats.TotalBuses</div>
+                        <div class="stat-label">Total Buses</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:rgba(230,126,34,0.1);color:var(--accent);">
+                        <i data-lucide="route" style="width:24px;height:24px;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value">@Model.Stats.TotalRoutes</div>
+                        <div class="stat-label">Total Routes</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:var(--info-bg);color:var(--info);">
+                        <i data-lucide="dollar-sign" style="width:24px;height:24px;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value">$@Model.Stats.TotalRevenue.ToString("0.00")</div>
+                        <div class="stat-label">Total Revenue</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="data-table">
+                    <div class="p-3 pb-0">
+                        <h6 class="fw-700 mb-0">Buses</h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Plate</th>
+                                    <th>Capacity</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var bus in Model.Buses)
+                                {
+                                    <tr>
+                                        <td>@bus.PlateNumber</td>
+                                        <td>@bus.Capacity</td>
+                                        <td>@(string.IsNullOrWhiteSpace(bus.Type) ? "-" : bus.Type)</td>
+                                        <td>
+                                            <span class="badge-status @(bus.IsActive ? "badge-active" : "badge-inactive")">
+                                                @(bus.IsActive ? "Active" : "Inactive")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="data-table">
+                    <div class="p-3 pb-0">
+                        <h6 class="fw-700 mb-0">Routes</h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Route</th>
+                                    <th>Distance</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var route in Model.Routes)
+                                {
+                                    <tr>
+                                        <td>@route.OriginStation.City &rarr; @route.DestinationStation.City</td>
+                                        <td>@(route.DistanceKm?.ToString() ?? "-") km</td>
+                                        <td>@(route.DurationMinutes?.ToString() ?? "-") min</td>
+                                        <td>
+                                            <span class="badge-status @(route.IsActive ? "badge-active" : "badge-inactive")">
+                                                @(route.IsActive ? "Active" : "Inactive")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="data-table">
+                    <div class="p-3 pb-0">
+                        <h6 class="fw-700 mb-0">Users</h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in Model.Users)
+                                {
+                                    <tr>
+                                        <td>@user.FirstName @user.LastName</td>
+                                        <td>@user.Email</td>
+                                        <td>@user.Role?.Name</td>
+                                        <td>
+                                            <span class="badge-status @(user.IsActive ? "badge-active" : "badge-inactive")">
+                                                @(user.IsActive ? "Active" : "Suspended")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="data-table">
+                    <div class="p-3 pb-0">
+                        <h6 class="fw-700 mb-0">Recent Logs</h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Action</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var log in Model.RecentLogs)
+                                {
+                                    <tr>
+                                        <td>@log.CreatedAt.ToString("dd.MM HH:mm")</td>
+                                        <td>@log.Action</td>
+                                        <td>@log.Description</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+

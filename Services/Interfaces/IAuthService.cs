@@ -21,6 +21,7 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
 
         // Password Reset
         Task<bool> RequestPasswordResetAsync(string email);
+        Task<bool> IsPasswordResetTokenValidAsync(string token);
         Task<bool> ResetPasswordAsync(string token, string newPassword);
 
         // User Info

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using OtobusBiletRezervasyon.DTOs.ViewModels;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Services.Interfaces;
 
@@ -8,7 +9,7 @@ namespace OtobusBiletRezervasyon.Controllers
 {
     [Authorize(Roles = "Admin,admin")]
     [Route("Admin/[action]/{id?}")]
-    public class AdminController : Controller
+    public class AdminController : BaseController
     {
         private readonly IAdminService _adminService;
         private readonly ILogService _logService;
@@ -24,13 +25,16 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> Dashboard()
         {
-            var stats = await _adminService.GetDashboardStatsAsync();
-            var recentLogs = await _logService.GetRecentLogsAsync(10);
+            var model = new AdminDashboardViewModel
+            {
+                Stats = await _adminService.GetDashboardStatsAsync(),
+                RecentLogs = (await _logService.GetRecentLogsAsync(10)).ToList(),
+                Buses = (await _adminService.GetAllBusesAsync()).Take(10).ToList(),
+                Routes = (await _adminService.GetAllRoutesAsync()).Take(10).ToList(),
+                Users = (await _adminService.GetAllUsersAsync()).Take(10).ToList()
+            };
 
-            ViewBag.Stats = stats;
-            ViewBag.SonLoglar = recentLogs;
-
-            return View();
+            return View(model);
         }
 
         #endregion
@@ -543,7 +547,7 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> Loglar(string? islem, int? kullaniciId, int sayfa = 1)
         {
-            int sayfaBoyutu = 50;
+            int sayfaBoyutu = AppConfig.LogPageSize;
             IEnumerable<Log> logs;
 
             if (!string.IsNullOrWhiteSpace(islem))
@@ -581,9 +585,9 @@ namespace OtobusBiletRezervasyon.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> LoglarTemizle(int gunSayisi = 30)
         {
-            if (gunSayisi < 7)
+            if (gunSayisi < AppConfig.MinLogRetentionDays)
             {
-                TempData["Hata"] = "En az 7 gunluk loglar saklanmalidir.";
+                TempData["Hata"] = $"En az {AppConfig.MinLogRetentionDays} gunluk loglar saklanmalidir.";
                 return RedirectToAction("Loglar");
             }
 
@@ -605,17 +609,6 @@ namespace OtobusBiletRezervasyon.Controllers
         #endregion
 
         #region Helper Methods
-
-        private int GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return int.TryParse(userIdClaim, out int userId) ? userId : 0;
-        }
-
-        private string GetClientIpAddress()
-        {
-            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        }
 
         private async Task LogAdminAction(string action, string description)
         {

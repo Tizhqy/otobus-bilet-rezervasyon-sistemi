@@ -1,0 +1,92 @@
+@model OtobusBiletRezervasyon.DTOs.Auth.UserInfoDto
+@{
+    ViewData["Title"] = "Profil";
+}
+
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <!-- Profil Basligi -->
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div style="width:64px;height:64px;background:var(--primary-bg, #eff6ff);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                        <i data-lucide="user" style="width:28px;height:28px;color:var(--primary);"></i>
+                    </div>
+                    <div>
+                        <h2 style="font-weight:800;margin-bottom:0;">@Model.FirstName @Model.LastName</h2>
+                        <p class="text-muted mb-0">@Model.Email</p>
+                    </div>
+                </div>
+
+                <!-- Kullanici Bilgileri -->
+                <div class="card" style="border:1px solid var(--border, #e5e7eb);border-radius:var(--radius-lg, 16px);box-shadow:var(--shadow);">
+                    <div class="card-body p-4">
+                        <h5 style="font-weight:700;margin-bottom:1rem;">
+                            <i data-lucide="info" style="width:18px;height:18px;color:var(--primary);"></i>
+                            Kisisel Bilgiler
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">Ad</label>
+                                <p style="font-weight:500;">@Model.FirstName</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">Soyad</label>
+                                <p style="font-weight:500;">@Model.LastName</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">E-posta</label>
+                                <p style="font-weight:500;">@Model.Email</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">Telefon</label>
+                                <p style="font-weight:500;">@(Model.Phone ?? "Belirtilmemis")</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">Rol</label>
+                                <p style="font-weight:500;">
+                                    <span class="badge" style="background:var(--primary-bg, #eff6ff);color:var(--primary);font-weight:600;padding:0.35rem 0.75rem;">
+                                        @Model.Role
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sifre Degistir -->
+                <div class="card mt-4" style="border:1px solid var(--border, #e5e7eb);border-radius:var(--radius-lg, 16px);box-shadow:var(--shadow);">
+                    <div class="card-body p-4">
+                        <h5 style="font-weight:700;margin-bottom:1rem;">
+                            <i data-lucide="lock" style="width:18px;height:18px;color:var(--primary);"></i>
+                            Sifre Degistir
+                        </h5>
+                        <form asp-controller="Auth" asp-action="SifreDegistir" method="post">
+                            @Html.AntiForgeryToken()
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label" style="font-weight:600;font-size:0.9rem;">Mevcut Sifre</label>
+                                    <input type="password" name="mevcutSifre" class="form-control" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" style="font-weight:600;font-size:0.9rem;">Yeni Sifre</label>
+                                    <input type="password" name="yeniSifre" class="form-control" minlength="6" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" style="font-weight:600;font-size:0.9rem;">Yeni Sifre (Tekrar)</label>
+                                    <input type="password" name="yeniSifreTekrar" class="form-control" minlength="6" required />
+                                </div>
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary-HamsiBus px-4 py-2">
+                                        <i data-lucide="save" style="width:16px;height:16px;"></i>
+                                        Sifreyi Guncelle
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

@@ -117,8 +117,7 @@ namespace OtobusBiletRezervasyon.Repositories
         public async Task<PasswordReset?> GetPasswordResetByTokenAsync(string token)
         {
             return await _context.PasswordResets
-                .Include(pr => pr.User)
-                .FirstOrDefaultAsync(pr => pr.Token == token && !pr.Used && pr.ExpiresAt > DateTime.Now);
+                .FirstOrDefaultAsync(pr => pr.Token == token && !pr.Used && pr.ExpiresAt > DateTime.UtcNow);
         }
 
         public async Task MarkPasswordResetAsUsedAsync(int id)

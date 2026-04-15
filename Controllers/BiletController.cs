@@ -7,7 +7,7 @@ using OtobusBiletRezervasyon.Services.Interfaces;
 namespace OtobusBiletRezervasyon.Controllers
 {
     [Authorize]
-    public class BiletController : Controller
+    public class BiletController : BaseController
     {
         private readonly ITicketService _ticketService;
         private readonly ISearchService _searchService;
@@ -47,6 +47,11 @@ namespace OtobusBiletRezervasyon.Controllers
 
             if (ticket == null)
                 return NotFound();
+
+            // Ownership kontrolu: kullanici sadece kendi biletini gorebilir
+            int userId = GetCurrentUserId();
+            if (ticket.UserId != userId && !User.IsInRole("Admin") && !User.IsInRole("admin"))
+                return Forbid();
 
             return View(ticket);
         }
@@ -94,7 +99,23 @@ namespace OtobusBiletRezervasyon.Controllers
             ViewBag.SeferId = seferId;
             ViewBag.KoltukId = koltukId;
 
-            return View();
+            return View(new CreateTicketDto
+            {
+                DepartureId = seferId,
+                Passengers = new List<PassengerDto>
+                {
+                    new PassengerDto
+                    {
+                        SeatId = koltukId
+                    }
+                },
+                Payment = new PaymentInfoDto
+                {
+                    Method = "CreditCard",
+                    Amount = departure.Price,
+                    TransactionId = Guid.NewGuid().ToString("N")
+                }
+            });
         }
 
         [HttpPost]
@@ -102,13 +123,47 @@ namespace OtobusBiletRezervasyon.Controllers
         public async Task<IActionResult> SatinAl(CreateTicketDto createTicketDto)
         {
             int userId = GetCurrentUserId();
+            createTicketDto.Passengers ??= new List<PassengerDto>();
+            createTicketDto.Payment ??= new PaymentInfoDto();
+
+            if (!createTicketDto.Passengers.Any())
+            {
+                createTicketDto.Passengers.Add(new PassengerDto());
+            }
 
             if (!ModelState.IsValid)
             {
                 var departure = await _searchService.GetDepartureByIdAsync(createTicketDto.DepartureId);
+                var selectedSeatId = createTicketDto.Passengers.FirstOrDefault()?.SeatId ?? 0;
+                var seats = await _searchService.GetSeatsForDepartureAsync(createTicketDto.DepartureId);
+                var selectedSeat = seats.FirstOrDefault(s => s.Id == selectedSeatId);
+
                 ViewBag.Sefer = departure;
+                ViewBag.SecilenKoltuk = selectedSeat;
                 ViewBag.SeferId = createTicketDto.DepartureId;
+                ViewBag.KoltukId = selectedSeatId;
                 return View(createTicketDto);
+            }
+
+            var selectedSeatIdForRedirect = createTicketDto.Passengers.FirstOrDefault()?.SeatId ?? 0;
+            var selectedDeparture = await _searchService.GetDepartureByIdAsync(createTicketDto.DepartureId);
+            if (selectedDeparture == null)
+            {
+                TempData["Hata"] = "Sefer bulunamadi.";
+                return RedirectToAction("Index", "Sefer");
+            }
+
+            if (!TryNormalizePaymentMethod(createTicketDto.Payment.Method, out var normalizedMethod))
+            {
+                TempData["Hata"] = "Gecersiz odeme yontemi.";
+                return RedirectToAction("SatinAl", new { seferId = createTicketDto.DepartureId, koltukId = selectedSeatIdForRedirect });
+            }
+
+            createTicketDto.Payment.Method = normalizedMethod;
+            createTicketDto.Payment.Amount = selectedDeparture.Price * createTicketDto.Passengers.Count;
+            if (string.IsNullOrWhiteSpace(createTicketDto.Payment.TransactionId))
+            {
+                createTicketDto.Payment.TransactionId = Guid.NewGuid().ToString("N");
             }
 
             try
@@ -137,7 +192,7 @@ namespace OtobusBiletRezervasyon.Controllers
             string yolcuAd,
             string yolcuSoyad,
             string? yolcuTc,
-            string odemeYontemi = "credit_card")
+            string odemeYontemi = "CreditCard")
         {
             int userId = GetCurrentUserId();
 
@@ -155,6 +210,19 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Detay", "Sefer", new { id = seferId });
             }
 
+            if (!TryNormalizePaymentMethod(odemeYontemi, out var normalizedMethod))
+            {
+                TempData["Hata"] = "Gecersiz odeme yontemi.";
+                return RedirectToAction("SatinAl", new { seferId, koltukId });
+            }
+
+            var selectedDeparture = await _searchService.GetDepartureByIdAsync(seferId);
+            if (selectedDeparture == null)
+            {
+                TempData["Hata"] = "Sefer bulunamadi.";
+                return RedirectToAction("Index", "Sefer");
+            }
+
             var createTicketDto = new CreateTicketDto
             {
                 DepartureId = seferId,
@@ -170,7 +238,8 @@ namespace OtobusBiletRezervasyon.Controllers
                 },
                 Payment = new PaymentInfoDto
                 {
-                    Method = odemeYontemi,
+                    Method = normalizedMethod,
+                    Amount = selectedDeparture.Price,
                     TransactionId = Guid.NewGuid().ToString("N")
                 }
             };
@@ -210,7 +279,8 @@ namespace OtobusBiletRezervasyon.Controllers
 
             if (!success)
             {
-                TempData["Hata"] = "Bilet iptal edilemedi. Bilet bulunamadi, zaten iptal edilmis veya kalkisa 2 saatten az kalmis olabilir.";
+            TempData["Hata"] = "Bilet iptal edilemedi. Bilet bulunamadi, zaten iptal edilmis veya kalkisa " +
+                $"{AppConfig.MinCancellationMinutesBeforeDeparture} dakikadan az kalmis olabilir.";
                 return RedirectToAction("Detay", new { id });
             }
 
@@ -244,19 +314,6 @@ namespace OtobusBiletRezervasyon.Controllers
 
         #endregion
 
-        #region Helper Methods
 
-        private int GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return int.TryParse(userIdClaim, out int userId) ? userId : 0;
-        }
-
-        private string GetClientIpAddress()
-        {
-            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        }
-
-        #endregion
     }
 }

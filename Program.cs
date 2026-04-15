@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using System.Threading.RateLimiting;
 using System.Text;
 using OtobusBiletRezervasyon;
 using OtobusBiletRezervasyon.Services;
@@ -17,7 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseMySql(connStr, ServerVersion.AutoDetect(connStr)));
 
 // ── JWT Ayarlari ────────────────────────────────────────────────────────────
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "BuCokGizliBirAnahtarEnAz32Karakter!";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key must be configured in appsettings.json");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "OtobusBiletRezervasyon";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "OtobusBiletRezervasyon";
 
@@ -72,6 +75,7 @@ builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 // ── Diger Servisler ──────────────────────────────────────────────────────────
 builder.Services.AddHttpContextAccessor();
@@ -88,6 +92,45 @@ builder.Services.AddAntiforgery(opt =>
     opt.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
+// ── Rate Limiting ─────────────────────────────────────────────────────────────
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    var authLoginPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:AuthLogin:PermitLimit") ?? 10;
+    var authLoginWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:AuthLogin:WindowSeconds") ?? 60;
+    var passwordResetPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PasswordReset:PermitLimit") ?? 3;
+    var passwordResetWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:PasswordReset:WindowSeconds") ?? 600;
+
+    options.AddPolicy("AuthLoginPolicy", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = authLoginPermitLimit,
+                Window = TimeSpan.FromSeconds(authLoginWindowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("PasswordResetPolicy", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = passwordResetPermitLimit,
+                Window = TimeSpan.FromSeconds(passwordResetWindowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
+        await context.HttpContext.Response.WriteAsync("Cok fazla istek gonderdiniz. Lutfen biraz sonra tekrar deneyin.", token);
+    };
+});
+
 var app = builder.Build();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
@@ -99,6 +142,15 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+var publicAssetsPath = Path.Combine(app.Environment.ContentRootPath, "public");
+if (Directory.Exists(publicAssetsPath))
+{
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(publicAssetsPath),
+        RequestPath = ""
+    });
+}
 app.UseRouting();
 
 // Security Headers
@@ -108,9 +160,16 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers.Append("X-Frame-Options", "DENY");
     ctx.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
     ctx.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    ctx.Response.Headers.Append("Content-Security-Policy",
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net unpkg.com; " +
+        "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net; " +
+        "font-src 'self' fonts.gstatic.com; " +
+        "img-src 'self' data:;");
     await next();
 });
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -129,6 +188,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    await DbSeeder.SeedAsync(db);
 }
 
 app.Run();

@@ -6,12 +6,12 @@ using OtobusBiletRezervasyon.Services.Interfaces;
 namespace OtobusBiletRezervasyon.Controllers
 {
     [Authorize]
-    public class OdemeController : Controller
+    public class OdemeController : BaseController
     {
         private readonly ITicketService _ticketService;
         private readonly ILogService _logService;
         private readonly IPaymentService _paymentService;
-        private const int PaymentTimeoutMinutes = 15;
+
 
         public OdemeController(
             ITicketService ticketService,
@@ -43,6 +43,13 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Liste", "Bilet");
             }
 
+            // Ownership kontrolu
+            if (ticket.UserId != userId)
+            {
+                TempData["Hata"] = "Bu bilete erisim yetkiniz yok.";
+                return RedirectToAction("Liste", "Bilet");
+            }
+
             if (!ticket.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) &&
                 !ticket.Status.Equals("BEKLEMEDE", StringComparison.OrdinalIgnoreCase))
             {
@@ -50,7 +57,7 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Liste", "Bilet");
             }
 
-            var timeRemaining = ticket.CreatedAt.AddMinutes(PaymentTimeoutMinutes) - DateTime.UtcNow;
+            var timeRemaining = ticket.CreatedAt.AddMinutes(AppConfig.PaymentTimeoutMinutes) - DateTime.UtcNow;
 
             if (timeRemaining.TotalSeconds <= 0)
             {
@@ -90,6 +97,13 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Liste", "Bilet");
             }
 
+            // Ownership kontrolu
+            if (ticket.UserId != userId)
+            {
+                TempData["Hata"] = "Bu bilete erisim yetkiniz yok.";
+                return RedirectToAction("Liste", "Bilet");
+            }
+
             if (!ticket.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) &&
                 !ticket.Status.Equals("BEKLEMEDE", StringComparison.OrdinalIgnoreCase))
             {
@@ -97,7 +111,7 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Liste", "Bilet");
             }
 
-            if (ticket.CreatedAt.AddMinutes(PaymentTimeoutMinutes) < DateTime.UtcNow)
+            if (ticket.CreatedAt.AddMinutes(AppConfig.PaymentTimeoutMinutes) < DateTime.UtcNow)
             {
                 await _ticketService.CancelTicketAsync(biletId, userId);
                 TempData["Hata"] = "Odeme suresi doldu.";
@@ -111,6 +125,9 @@ namespace OtobusBiletRezervasyon.Controllers
             }
 
             var referenceNo = _paymentService.GenerateReferenceNumber();
+
+            // Bilet durumunu Confirmed olarak guncelle
+            await _ticketService.ConfirmTicketAsync(biletId);
 
             await _logService.LogAsync(userId, "ODEME_TAMAMLA",
                 $"Bilet #{biletId} odendi. Referans: {referenceNo}, Yontem: {odemeYontemi}",
@@ -150,7 +167,7 @@ namespace OtobusBiletRezervasyon.Controllers
             if (ticket == null)
                 return Json(new { expired = true, seconds = 0 });
 
-            var timeRemaining = ticket.CreatedAt.AddMinutes(PaymentTimeoutMinutes) - DateTime.UtcNow;
+            var timeRemaining = ticket.CreatedAt.AddMinutes(AppConfig.PaymentTimeoutMinutes) - DateTime.UtcNow;
 
             if (timeRemaining.TotalSeconds <= 0)
                 return Json(new { expired = true, seconds = 0 });
@@ -160,19 +177,6 @@ namespace OtobusBiletRezervasyon.Controllers
 
         #endregion
 
-        #region Helper Methods
 
-        private int GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return int.TryParse(userIdClaim, out int userId) ? userId : 0;
-        }
-
-        private string GetClientIpAddress()
-        {
-            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        }
-
-        #endregion
     }
 }

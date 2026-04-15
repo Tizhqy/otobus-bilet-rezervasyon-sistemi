@@ -1,0 +1,160 @@
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - HamsiBus</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="@Url.Content("~/css/style.css")" rel="stylesheet" />
+    @RenderSection("Head", required: false)
+</head>
+<body>
+    <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999;"></div>
+
+    <nav class="navbar navbar-expand-lg navbar-HamsiBus">
+        <div class="container">
+            <a class="navbar-brand" asp-controller="Sefer" asp-action="Index">
+                <i data-lucide="bus" style="width:28px;height:28px;"></i>
+                HamsiBus
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+                <i data-lucide="menu" style="width:24px;height:24px;"></i>
+            </button>
+            <div class="collapse navbar-collapse" id="navMain">
+                <ul class="navbar-nav me-auto ms-4">
+                    <li class="nav-item">
+                        <a class="nav-link @(currentController == "Sefer" && currentAction == "Index" ? "active" : "")"
+                           asp-controller="Sefer"
+                           asp-action="Index">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(currentController == "Sefer" && currentAction == "AramaSonuclari" ? "active" : "")"
+                           asp-controller="Sefer"
+                           asp-action="AramaSonuclari">Routes</a>
+                    </li>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link @(currentController == "Bilet" && currentAction == "Liste" ? "active" : "")"
+                               asp-controller="Bilet"
+                               asp-action="Liste">My Trips</a>
+                        </li>
+                        @if (User.IsInRole("Admin") || User.IsInRole("admin"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "Admin" ? "active" : "")"
+                                   asp-controller="Admin"
+                                   asp-action="Dashboard">Admin</a>
+                            </li>
+                        }
+                    }
+                </ul>
+
+                <div class="d-flex align-items-center gap-2">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <span style="font-weight:600;font-size:0.9rem;color:var(--text-dark);">@User.Identity?.Name</span>
+                        <form asp-controller="Auth" asp-action="Cikis" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-ghost">Cikis</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a asp-controller="Auth" asp-action="Giris" class="btn btn-ghost">Giris</a>
+                        <a asp-controller="Auth" asp-action="Kayit" class="btn btn-primary-HamsiBus">Kayit Ol</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="container mt-3">
+            @if (TempData["Basari"] is string basariMesaji)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    @basariMesaji
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (TempData["Hata"] is string hataMesaji)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    @hataMesaji
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (TempData["Bilgi"] is string bilgiMesaji)
+            {
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    @bilgiMesaji
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+        </div>
+        @RenderBody()
+    </main>
+
+    <footer class="footer-HamsiBus mt-5">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i data-lucide="bus" style="width:24px;height:24px;color:var(--accent);"></i>
+                        <span style="font-weight:800;font-size:1.25rem;color:#fff;">HamsiBus</span>
+                    </div>
+                    <p style="font-size:0.9rem;max-width:300px;">The smartest way to book bus tickets online. Compare routes, pick your seat, and travel with confidence.</p>
+                </div>
+                <div class="col-6 col-lg-2">
+                    <h6>Company</h6>
+                    <a href="#">About Us</a>
+                    <a href="#">Careers</a>
+                    <a href="#">Press</a>
+                    <a href="#">Blog</a>
+                </div>
+                <div class="col-6 col-lg-2">
+                    <h6>Support</h6>
+                    <a href="#">Help Center</a>
+                    <a href="#">Contact Us</a>
+                    <a href="#">Refund Policy</a>
+                    <a href="#">FAQs</a>
+                </div>
+                <div class="col-6 col-lg-2">
+                    <h6>Legal</h6>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Use</a>
+                    <a href="#">Cookie Policy</a>
+                </div>
+                <div class="col-6 col-lg-2">
+                    <h6>Connect</h6>
+                    <a href="#">Twitter</a>
+                    <a href="#">Facebook</a>
+                    <a href="#">Instagram</a>
+                    <a href="#">LinkedIn</a>
+                </div>
+            </div>
+            <div class="footer-bottom d-flex flex-wrap justify-content-between align-items-center">
+                <p class="mb-0" style="font-size:0.85rem;">&copy; @DateTime.Now.Year HamsiBus. All rights reserved.</p>
+                <div class="d-flex gap-3" style="font-size:0.85rem;">
+                    <a href="#">Privacy</a>
+                    <a href="#">Terms</a>
+                    <a href="#">Cookies</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="@Url.Content("~/js/main.js")"></script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>
+

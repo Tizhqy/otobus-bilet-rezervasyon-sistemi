@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using OtobusBiletRezervasyon.DTOs.Auth;
 using OtobusBiletRezervasyon.Services.Interfaces;
 
 namespace OtobusBiletRezervasyon.Controllers
 {
-    public class AuthController : Controller
+    public class AuthController : BaseController
     {
         private readonly IAuthService _authService;
         private readonly ILogService _logService;
@@ -70,6 +71,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("AuthLoginPolicy")]
         public async Task<IActionResult> Giris(LoginDto model, string? returnUrl = null)
         {
             if (User.Identity?.IsAuthenticated == true)
@@ -86,6 +88,7 @@ namespace OtobusBiletRezervasyon.Controllers
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
+                ViewBag.ErrorMessage = result.Message;
                 ViewBag.ReturnUrl = returnUrl;
                 return View(model);
             }
@@ -158,6 +161,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("PasswordResetPolicy")]
         public async Task<IActionResult> SifremiUnuttum(string email)
         {
             if (string.IsNullOrWhiteSpace(email))
@@ -185,8 +189,8 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Giris");
             }
 
-            var userId = await _authService.ValidateJwtTokenAsync(token);
-            if (userId == null)
+            var isValidToken = await _authService.IsPasswordResetTokenValidAsync(token);
+            if (!isValidToken)
             {
                 TempData["Hata"] = "Gecersiz veya suresi dolmus baglanti.";
                 return RedirectToAction("Giris");
@@ -282,19 +286,6 @@ namespace OtobusBiletRezervasyon.Controllers
 
         #endregion
 
-        #region Helper Methods
 
-        private int GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return int.TryParse(userIdClaim, out int userId) ? userId : 0;
-        }
-
-        private string GetClientIpAddress()
-        {
-            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        }
-
-        #endregion
     }
 }
