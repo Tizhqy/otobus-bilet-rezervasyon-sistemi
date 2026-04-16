@@ -37,6 +37,8 @@ namespace OtobusBiletRezervasyon.DTOs.Ticket
         [Required(ErrorMessage = "Payment method is required")]
         public string Method { get; set; } = string.Empty;
 
+        public decimal Amount { get; set; }
+
         [Required(ErrorMessage = "Transaction ID is required")]
         public string TransactionId { get; set; } = string.Empty;
     }

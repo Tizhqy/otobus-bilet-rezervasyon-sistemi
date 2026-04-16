@@ -1,26 +1,20 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using OtobusBiletRezervasyon.DTOs.Ticket;
+using OtobusBiletRezervasyon.DTOs.ViewModels;
+using OtobusBiletRezervasyon.Services.FlowModels;
 using OtobusBiletRezervasyon.Services.Interfaces;
 
 namespace OtobusBiletRezervasyon.Controllers
 {
     [Authorize]
-    public class BiletController : Controller
+    public class BiletController : BaseController
     {
-        private readonly ITicketService _ticketService;
-        private readonly ISearchService _searchService;
-        private readonly ILogService _logService;
+        private readonly IBiletFlowService _biletFlowService;
 
-        public BiletController(
-            ITicketService ticketService,
-            ISearchService searchService,
-            ILogService logService)
+        public BiletController(IBiletFlowService biletFlowService)
         {
-            _ticketService = ticketService;
-            _searchService = searchService;
-            _logService = logService;
+            _biletFlowService = biletFlowService;
         }
 
         #region Liste (User Tickets)
@@ -29,7 +23,7 @@ namespace OtobusBiletRezervasyon.Controllers
         public async Task<IActionResult> Liste()
         {
             int userId = GetCurrentUserId();
-            var tickets = await _ticketService.GetUserTicketsAsync(userId);
+            var tickets = await _biletFlowService.GetUserTicketsAsync(userId);
             return View(tickets);
         }
 
@@ -40,15 +34,21 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> Detay(int id)
         {
-            if (id <= 0)
-                return NotFound();
+            int userId = GetCurrentUserId();
+            bool isAdmin = User.IsInRole("Admin") || User.IsInRole("admin");
+            var result = await _biletFlowService.GetTicketDetayForUserAsync(id, userId, isAdmin);
 
-            var ticket = await _ticketService.GetTicketByIdAsync(id);
+            if (!result.Success)
+            {
+                return result.Type switch
+                {
+                    ServiceResultType.NotFound => NotFound(),
+                    ServiceResultType.Forbidden => Forbid(),
+                    _ => NotFound()
+                };
+            }
 
-            if (ticket == null)
-                return NotFound();
-
-            return View(ticket);
+            return View(result.Data);
         }
 
         #endregion
@@ -58,75 +58,55 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> SatinAl(int seferId, int koltukId)
         {
-            if (seferId <= 0 || koltukId <= 0)
+            var result = await _biletFlowService.HazirlaSatinAlSayfasiAsync(seferId, koltukId);
+
+            if (!result.Success)
             {
-                TempData["Hata"] = "Gecersiz sefer veya koltuk bilgisi.";
+                TempData["Hata"] = result.Message;
+                if (result.Type == ServiceResultType.Conflict && seferId > 0)
+                    return RedirectToAction("Detay", "Sefer", new { id = seferId });
+                if (result.Type == ServiceResultType.Expired)
+                    return RedirectToAction("Index", "Sefer");
+
                 return RedirectToAction("Index", "Sefer");
             }
 
-            var isAvailable = await _ticketService.IsSeatAvailableAsync(seferId, koltukId);
-
-            if (!isAvailable)
-            {
-                TempData["Hata"] = "Bu koltuk dolu. Lutfen baska bir koltuk secin.";
-                return RedirectToAction("Detay", "Sefer", new { id = seferId });
-            }
-
-            var departure = await _searchService.GetDepartureByIdAsync(seferId);
-
-            if (departure == null)
-            {
-                TempData["Hata"] = "Sefer bulunamadi.";
-                return RedirectToAction("Index", "Sefer");
-            }
-
-            if (departure.DepartureTime <= DateTime.UtcNow)
-            {
-                TempData["Hata"] = "Bu sefer icin bilet satisi sona ermistir.";
-                return RedirectToAction("Index", "Sefer");
-            }
-
-            var seats = await _searchService.GetSeatsForDepartureAsync(seferId);
-            var selectedSeat = seats.FirstOrDefault(s => s.Id == koltukId);
-
-            ViewBag.Sefer = departure;
-            ViewBag.SecilenKoltuk = selectedSeat;
-            ViewBag.SeferId = seferId;
-            ViewBag.KoltukId = koltukId;
-
-            return View();
+            SetSatinAlViewBag(result.Data!);
+            return View(result.Data!.Form);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SatinAl(CreateTicketDto createTicketDto)
         {
-            int userId = GetCurrentUserId();
-
             if (!ModelState.IsValid)
             {
-                var departure = await _searchService.GetDepartureByIdAsync(createTicketDto.DepartureId);
-                ViewBag.Sefer = departure;
-                ViewBag.SeferId = createTicketDto.DepartureId;
+                var pageResult = await _biletFlowService.HazirlaSatinAlSayfasiAsync(createTicketDto);
+                if (pageResult.Success)
+                    SetSatinAlViewBag(pageResult.Data!);
                 return View(createTicketDto);
             }
 
-            try
+            int userId = GetCurrentUserId();
+            var result = await _biletFlowService.SatinAlAsync(userId, createTicketDto);
+
+            if (!result.Success)
             {
-                var ticket = await _ticketService.PurchaseTicketAsync(userId, createTicketDto);
-                await _logService.LogTicketPurchaseAsync(userId, ticket.Id, GetClientIpAddress());
-                return RedirectToAction("Odeme", "Odeme", new { biletId = ticket.Id });
-            }
-            catch (InvalidOperationException ex)
-            {
-                TempData["Hata"] = ex.Message;
+                TempData["Hata"] = result.Message;
+                if (result.Type == ServiceResultType.NotFound)
+                    return RedirectToAction("Index", "Sefer");
+                if (result.Type == ServiceResultType.Expired)
+                    return RedirectToAction("Index", "Sefer");
+                if (result.Type == ServiceResultType.ValidationError)
+                {
+                    var selectedSeatId = createTicketDto.Passengers?.FirstOrDefault()?.SeatId ?? 0;
+                    return RedirectToAction("SatinAl", new { seferId = createTicketDto.DepartureId, koltukId = selectedSeatId });
+                }
+
                 return RedirectToAction("Detay", "Sefer", new { id = createTicketDto.DepartureId });
             }
-            catch (Exception)
-            {
-                TempData["Hata"] = "Bilet satin alinirken bir hata olustu. Lutfen tekrar deneyin.";
-                return RedirectToAction("Detay", "Sefer", new { id = createTicketDto.DepartureId });
-            }
+
+            return RedirectToAction("Odeme", "Odeme", new { biletId = result.Data!.Id });
         }
 
         [HttpPost]
@@ -137,60 +117,26 @@ namespace OtobusBiletRezervasyon.Controllers
             string yolcuAd,
             string yolcuSoyad,
             string? yolcuTc,
-            string odemeYontemi = "credit_card")
+            string odemeYontemi = "CreditCard")
         {
             int userId = GetCurrentUserId();
+            var result = await _biletFlowService.SatinAlFormAsync(
+                userId, seferId, koltukId, yolcuAd, yolcuSoyad, yolcuTc, odemeYontemi);
 
-            if (string.IsNullOrWhiteSpace(yolcuAd) || string.IsNullOrWhiteSpace(yolcuSoyad))
+            if (!result.Success)
             {
-                TempData["Hata"] = "Yolcu adi ve soyadi zorunludur.";
-                return RedirectToAction("SatinAl", new { seferId, koltukId });
-            }
+                TempData["Hata"] = result.Message;
 
-            var isAvailable = await _ticketService.IsSeatAvailableAsync(seferId, koltukId);
-
-            if (!isAvailable)
-            {
-                TempData["Hata"] = "Bu koltuk artik musait degil.";
-                return RedirectToAction("Detay", "Sefer", new { id = seferId });
-            }
-
-            var createTicketDto = new CreateTicketDto
-            {
-                DepartureId = seferId,
-                Passengers = new List<PassengerDto>
+                return result.Type switch
                 {
-                    new PassengerDto
-                    {
-                        SeatId = koltukId,
-                        FirstName = yolcuAd,
-                        LastName = yolcuSoyad,
-                        IdNumber = yolcuTc
-                    }
-                },
-                Payment = new PaymentInfoDto
-                {
-                    Method = odemeYontemi,
-                    TransactionId = Guid.NewGuid().ToString("N")
-                }
-            };
+                    ServiceResultType.NotFound => RedirectToAction("Index", "Sefer"),
+                    ServiceResultType.Conflict => RedirectToAction("Detay", "Sefer", new { id = seferId }),
+                    ServiceResultType.Expired => RedirectToAction("Index", "Sefer"),
+                    _ => RedirectToAction("SatinAl", new { seferId, koltukId })
+                };
+            }
 
-            try
-            {
-                var ticket = await _ticketService.PurchaseTicketAsync(userId, createTicketDto);
-                await _logService.LogTicketPurchaseAsync(userId, ticket.Id, GetClientIpAddress());
-                return RedirectToAction("Odeme", "Odeme", new { biletId = ticket.Id });
-            }
-            catch (InvalidOperationException ex)
-            {
-                TempData["Hata"] = ex.Message;
-                return RedirectToAction("Detay", "Sefer", new { id = seferId });
-            }
-            catch (Exception)
-            {
-                TempData["Hata"] = "Bilet satin alinirken bir hata olustu.";
-                return RedirectToAction("Detay", "Sefer", new { id = seferId });
-            }
+            return RedirectToAction("Odeme", "Odeme", new { biletId = result.Data!.Id });
         }
 
         #endregion
@@ -201,22 +147,21 @@ namespace OtobusBiletRezervasyon.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Iptal(int id)
         {
-            if (id <= 0)
-                return NotFound();
-
             int userId = GetCurrentUserId();
+            var result = await _biletFlowService.IptalAsync(id, userId);
 
-            var success = await _ticketService.CancelTicketAsync(id, userId);
-
-            if (!success)
+            if (!result.Success)
             {
-                TempData["Hata"] = "Bilet iptal edilemedi. Bilet bulunamadi, zaten iptal edilmis veya kalkisa 2 saatten az kalmis olabilir.";
+                if (result.Type == ServiceResultType.NotFound)
+                    return NotFound();
+                if (result.Type == ServiceResultType.Forbidden)
+                    return Forbid();
+
+                TempData["Hata"] = result.Message;
                 return RedirectToAction("Detay", new { id });
             }
 
-            await _logService.LogTicketCancellationAsync(userId, id, GetClientIpAddress());
-
-            TempData["Basari"] = "Biletiniz iptal edildi.";
+            TempData["Basari"] = result.Message;
             return RedirectToAction("Liste");
         }
 
@@ -227,7 +172,7 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> KoltukMusaitMi(int seferId, int koltukId)
         {
-            var isAvailable = await _ticketService.IsSeatAvailableAsync(seferId, koltukId);
+            var isAvailable = await _biletFlowService.KoltukMusaitMiAsync(seferId, koltukId);
             return Json(new { available = isAvailable });
         }
 
@@ -238,25 +183,18 @@ namespace OtobusBiletRezervasyon.Controllers
             if (koltukIds == null || !koltukIds.Any())
                 return BadRequest(new { error = "Koltuk secilmedi." });
 
-            var areAvailable = await _ticketService.AreSeatAvailableAsync(seferId, koltukIds);
+            var areAvailable = await _biletFlowService.KoltuklarMusaitMiAsync(seferId, koltukIds);
             return Json(new { available = areAvailable });
         }
 
         #endregion
 
-        #region Helper Methods
-
-        private int GetCurrentUserId()
+        private void SetSatinAlViewBag(BiletSatinAlViewModel model)
         {
-            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return int.TryParse(userIdClaim, out int userId) ? userId : 0;
+            ViewBag.Sefer = model.Sefer;
+            ViewBag.SecilenKoltuk = model.SecilenKoltuk;
+            ViewBag.SeferId = model.SeferId;
+            ViewBag.KoltukId = model.KoltukId;
         }
-
-        private string GetClientIpAddress()
-        {
-            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        }
-
-        #endregion
     }
 }

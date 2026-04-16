@@ -1,0 +1,189 @@
+@model OtobusBiletRezervasyon.DTOs.ViewModels.SeferDetayViewModel
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Sefer Detay";
+    var sefer = Model.Sefer;
+    var sure = sefer.ArrivalTime - sefer.DepartureTime;
+    var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
+}
+
+<div class="container">
+    <div class="progress-steps">
+        <div class="progress-step done">
+            <div class="step-number"><i data-lucide="check" style="width:16px;height:16px;"></i></div>
+            <span class="step-label">Search</span>
+        </div>
+        <div class="progress-step-line done"></div>
+        <div class="progress-step active">
+            <div class="step-number">2</div>
+            <span class="step-label">Select Seat</span>
+        </div>
+        <div class="progress-step-line"></div>
+        <div class="progress-step">
+            <div class="step-number">3</div>
+            <span class="step-label">Checkout</span>
+        </div>
+    </div>
+</div>
+
+<section class="pb-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="seat-map-container">
+                    <div class="d-flex align-items-center justify-content-between mb-4">
+                        <div>
+                            <h4 class="mb-1">Choose Your Seat</h4>
+                            <p class="text-muted mb-0" style="font-size:0.9rem;">@sefer.Bus.PlateNumber &middot; @sefer.Bus.Type &middot; @sefer.TotalSeats Seats</p>
+                        </div>
+                    </div>
+
+                    <div class="bus-outline">
+                        <div class="bus-front">
+                            <i data-lucide="circle-dot" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+                            Driver
+                        </div>
+                        <div class="d-flex flex-wrap justify-content-center gap-2">
+                            @foreach (var seat in Model.Seats.OrderBy(s => s.SeatNumber))
+                            {
+                                var available = seat.Status.Equals("Available", StringComparison.OrdinalIgnoreCase);
+                                if (available)
+                                {
+                                    <button type="button"
+                                            class="seat"
+                                            data-seat-id="@seat.Id"
+                                            data-seat="@seat.SeatNumber">
+                                        @seat.SeatNumber
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            class="seat taken"
+                                            data-seat-id="@seat.Id"
+                                            data-seat="@seat.SeatNumber"
+                                            disabled>
+                                        @seat.SeatNumber
+                                    </button>
+                                }
+                            }
+                        </div>
+                    </div>
+
+                    <div class="seat-legend justify-content-center">
+                        <div class="seat-legend-item">
+                            <div class="seat-sample available"></div>
+                            <span>Available</span>
+                        </div>
+                        <div class="seat-legend-item">
+                            <div class="seat-sample selected-sample"></div>
+                            <span>Selected</span>
+                        </div>
+                        <div class="seat-legend-item">
+                            <div class="seat-sample taken-sample"></div>
+                            <span>Taken</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="trip-summary">
+                    <h5 class="fw-700">Trip Summary</h5>
+                    <div class="summary-route">
+                        <div style="width:40px;height:40px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                            <i data-lucide="bus" style="width:20px;height:20px;color:var(--primary);"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:700;font-size:0.95rem;color:var(--text-dark);">@sefer.Bus.PlateNumber</div>
+                            <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Bus.Type</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3 mb-3 pb-3" style="border-bottom:1px solid var(--border);">
+                        <div>
+                            <div style="font-weight:700;color:var(--text-dark);">@sefer.DepartureTime.ToString("HH:mm")</div>
+                            <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.OriginStation.City</div>
+                        </div>
+                        <div class="flex-grow-1 text-center">
+                            <div style="font-size:0.75rem;color:var(--text-muted);">@sure.Hours h @sure.Minutes m</div>
+                            <div style="height:2px;background:var(--border);position:relative;">
+                                <div style="position:absolute;left:0;top:-3px;width:8px;height:8px;background:var(--primary);border-radius:50%;"></div>
+                                <div style="position:absolute;right:0;top:-3px;width:8px;height:8px;background:var(--accent);border-radius:50%;"></div>
+                            </div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">Direct</div>
+                        </div>
+                        <div class="text-end">
+                            <div style="font-weight:700;color:var(--text-dark);">@sefer.ArrivalTime.ToString("HH:mm")</div>
+                            <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.DestinationStation.City</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div style="font-size:0.85rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Selected Seat</div>
+                        <div id="selectedSeatsList">
+                            <span class="text-muted" style="font-size:0.9rem;" id="noSeatMsg">No seat selected yet</span>
+                        </div>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Base fare</span>
+                        <span>$@sefer.Price.ToString("0.00")</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total</span>
+                        <span id="totalPrice">$@sefer.Price.ToString("0.00")</span>
+                    </div>
+
+                    <a asp-controller="Bilet"
+                       asp-action="SatinAl"
+                       asp-route-seferId="@sefer.Id"
+                       asp-route-koltukId="0"
+                       class="btn btn-primary-HamsiBus w-100 mt-3 py-3 justify-content-center"
+                       id="continueBtn"
+                       style="pointer-events:none;opacity:0.5;">
+                        Continue to Checkout
+                        <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+                    </a>
+                    <a asp-controller="Sefer" asp-action="AramaSonuclari" class="btn btn-ghost w-100 mt-2 justify-content-center" style="font-size:0.9rem;">
+                        <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+                        Back to results
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script nonce="@cspNonce">
+        let selectedSeatId = 0;
+        const checkoutBase = '@Url.Action("SatinAl", "Bilet", new { seferId = sefer.Id, koltukId = "__SEAT_ID__" })';
+
+        function toggleSeat(el) {
+            if (el.classList.contains("taken")) return;
+
+            document.querySelectorAll(".seat.selected").forEach(s => s.classList.remove("selected"));
+            el.classList.add("selected");
+            selectedSeatId = parseInt(el.getAttribute("data-seat-id"));
+
+            const seatNo = el.getAttribute("data-seat");
+            const listEl = document.getElementById("selectedSeatsList");
+            listEl.innerHTML = '<div class="d-flex align-items-center gap-2"><span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:var(--primary);color:#fff;border-radius:6px;font-size:0.75rem;font-weight:700;">' + seatNo + "</span><span>Seat " + seatNo + "</span></div>";
+
+            const continueBtn = document.getElementById("continueBtn");
+            continueBtn.href = checkoutBase.replace("__SEAT_ID__", selectedSeatId);
+            continueBtn.style.pointerEvents = "auto";
+            continueBtn.style.opacity = "1";
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll(".seat[data-seat-id]:not(.taken):not([disabled])").forEach(function (seatEl) {
+                seatEl.addEventListener("click", function () {
+                    toggleSeat(seatEl);
+                });
+            });
+        });
+    </script>
+}
+

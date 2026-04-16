@@ -86,7 +86,7 @@ namespace OtobusBiletRezervasyon.Repositories
                 .Where(l => l.CreatedAt < date)
                 .ToListAsync();
 
-            if (!oldLogs.Any()) return false;
+            if (!oldLogs.Any()) return true;
 
             _context.Logs.RemoveRange(oldLogs);
             await _context.SaveChangesAsync();

@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Repositories.Interfaces;
 using OtobusBiletRezervasyon.Services.Interfaces;
@@ -11,26 +10,28 @@ namespace OtobusBiletRezervasyon.Services
         private readonly IDepartureRepository _departureRepository;
         private readonly ISeatRepository _seatRepository;
         private readonly ITicketRepository _ticketRepository;
-        private readonly AppDbContext _context;
 
         public AdminService(
             IUserRepository userRepository,
             IDepartureRepository departureRepository,
             ISeatRepository seatRepository,
-            ITicketRepository ticketRepository,
-            AppDbContext context)
+            ITicketRepository ticketRepository)
         {
             _userRepository = userRepository;
             _departureRepository = departureRepository;
             _seatRepository = seatRepository;
             _ticketRepository = ticketRepository;
-            _context = context;
         }
 
         // User Management
         public async Task<IEnumerable<User>> GetAllUsersAsync()
         {
             return await _userRepository.GetAllAsync();
+        }
+
+        public async Task<(IReadOnlyList<User> Users, int TotalCount)> GetUsersPageAsync(string? search, int page, int pageSize)
+        {
+            return await _userRepository.GetPagedAsync(search, page, pageSize);
         }
 
         public async Task<User?> GetUserByIdAsync(int id)
@@ -220,23 +221,26 @@ namespace OtobusBiletRezervasyon.Services
         // Dashboard Statistics
         public async Task<DashboardStats> GetDashboardStatsAsync()
         {
-            var today = DateTime.Today;
+            var today = DateTime.UtcNow.Date;
             var tomorrow = today.AddDays(1);
+            var users = (await _userRepository.GetAllAsync()).ToList();
+            var buses = (await _departureRepository.GetAllBusesAsync()).ToList();
+            var routes = (await _departureRepository.GetAllRoutesAsync()).ToList();
+            var departures = (await _departureRepository.GetAllAsync()).ToList();
+            var tickets = (await _ticketRepository.GetAllAsync()).ToList();
 
             return new DashboardStats
             {
-                TotalUsers = await _context.Users.CountAsync(),
-                TotalBuses = await _context.Buses.CountAsync(),
-                TotalRoutes = await _context.Routes.CountAsync(),
-                TotalDepartures = await _context.Departures.CountAsync(),
-                TotalTickets = await _context.Tickets.CountAsync(),
-                ActiveDepartures = await _context.Departures
-                    .CountAsync(d => d.IsActive && d.DepartureTime > DateTime.Now),
-                TotalRevenue = await _context.Payments
-                    .Where(p => p.Status == PaymentStatus.Completed)
-                    .SumAsync(p => p.Amount),
-                TodayTickets = await _context.Tickets
-                    .CountAsync(t => t.CreatedAt >= today && t.CreatedAt < tomorrow)
+                TotalUsers = users.Count,
+                TotalBuses = buses.Count,
+                TotalRoutes = routes.Count,
+                TotalDepartures = departures.Count,
+                TotalTickets = tickets.Count,
+                ActiveDepartures = departures.Count(d => d.IsActive && d.DepartureTime > DateTime.UtcNow),
+                TotalRevenue = tickets
+                    .Where(t => t.Payment != null && t.Payment.Status == PaymentStatus.Completed)
+                    .Sum(t => t.Payment!.Amount),
+                TodayTickets = tickets.Count(t => t.CreatedAt >= today && t.CreatedAt < tomorrow)
             };
         }
     }

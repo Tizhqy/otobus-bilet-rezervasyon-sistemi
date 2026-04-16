@@ -1,0 +1,85 @@
+@model OtobusBiletRezervasyon.DTOs.Auth.RegisterDto
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Kayit";
+}
+
+<section class="py-5">
+    <div class="container">
+        <div class="auth-container">
+            <div class="auth-left">
+                <div class="auth-branding position-relative" style="z-index:2;max-width:440px;">
+                    <a asp-controller="Sefer" asp-action="Index" class="d-flex align-items-center gap-2 mb-4" style="color:#fff;font-weight:800;font-size:1.5rem;">
+                        <i data-lucide="bus" style="width:32px;height:32px;color:var(--accent);"></i>
+                        HamsiBus
+                    </a>
+                    <h1>Start your adventure today.</h1>
+                    <p>Create a free account and unlock exclusive benefits, faster checkout, and personalized recommendations.</p>
+                </div>
+            </div>
+
+            <div class="auth-right">
+                <div class="auth-form">
+                    <h2>Create your account</h2>
+                    <p class="text-muted mb-4">It only takes a minute to get started</p>
+
+                    <form asp-controller="Auth" asp-action="Kayit" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label asp-for="FirstName" class="form-label" style="font-weight:600;font-size:0.9rem;">
+                                    First Name <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="FirstName" class="form-control" placeholder="John" />
+                                <span asp-validation-for="FirstName" class="text-danger small"></span>
+                            </div>
+                            <div class="col-6">
+                                <label asp-for="LastName" class="form-label" style="font-weight:600;font-size:0.9rem;">
+                                    Last Name <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="LastName" class="form-control" placeholder="Smith" />
+                                <span asp-validation-for="LastName" class="text-danger small"></span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label" style="font-weight:600;font-size:0.9rem;">
+                                Email Address <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="Email" type="email" class="form-control" placeholder="you@example.com" />
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Phone" class="form-label" style="font-weight:600;font-size:0.9rem;">Phone</label>
+                            <input asp-for="Phone" class="form-control" placeholder="+90 5XX XXX XX XX" />
+                            <span asp-validation-for="Phone" class="text-danger small"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Password" class="form-label" style="font-weight:600;font-size:0.9rem;">
+                                Password <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="Password" type="password" class="form-control" placeholder="Min. 6 characters" />
+                            <span asp-validation-for="Password" class="text-danger small"></span>
+                        </div>
+                        <div class="mb-4">
+                            <label asp-for="ConfirmPassword" class="form-label" style="font-weight:600;font-size:0.9rem;">
+                                Confirm Password <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="ConfirmPassword" type="password" class="form-control" placeholder="Repeat password" />
+                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary-HamsiBus w-100 py-3 mb-3" style="font-size:1rem;">
+                            Create Account
+                        </button>
+                    </form>
+
+                    <p class="text-center mt-3 mb-0" style="font-size:0.9rem;color:var(--text-muted);">
+                        Already have an account?
+                        <a asp-controller="Auth" asp-action="Giris" style="color:var(--primary);font-weight:600;">Log in</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+

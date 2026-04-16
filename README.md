@@ -166,6 +166,12 @@ ASP.NET Core ve MySQL kullanilarak gelistirilen kapsamli bir otobus bilet rezerv
 # Paketleri yukle
 dotnet restore
 
+# Development ortaminda DB sifresi bos birakilmissa env var ile verin
+# PowerShell:
+# $env:Database__Password="MYSQL_ROOT_SIFRENIZ"
+# veya:
+# $env:MYSQL_PASSWORD="MYSQL_ROOT_SIFRENIZ"
+#
 # Veritabanini olustur
 dotnet ef database update
 

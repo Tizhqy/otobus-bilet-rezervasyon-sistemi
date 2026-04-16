@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using OtobusBiletRezervasyon.DTOs.Auth;
 using OtobusBiletRezervasyon.Services.Interfaces;
 
 namespace OtobusBiletRezervasyon.Controllers
 {
-    public class AuthController : Controller
+    public class AuthController : BaseController
     {
         private readonly IAuthService _authService;
         private readonly ILogService _logService;
@@ -70,6 +71,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("AuthLoginPolicy")]
         public async Task<IActionResult> Giris(LoginDto model, string? returnUrl = null)
         {
             if (User.Identity?.IsAuthenticated == true)
@@ -158,6 +160,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("PasswordResetPolicy")]
         public async Task<IActionResult> SifremiUnuttum(string email)
         {
             if (string.IsNullOrWhiteSpace(email))
@@ -185,8 +188,8 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Giris");
             }
 
-            var userId = await _authService.ValidateJwtTokenAsync(token);
-            if (userId == null)
+            var isValidToken = await _authService.IsPasswordResetTokenValidAsync(token);
+            if (!isValidToken)
             {
                 TempData["Hata"] = "Gecersiz veya suresi dolmus baglanti.";
                 return RedirectToAction("Giris");
@@ -198,6 +201,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("PasswordResetPolicy")]
         public async Task<IActionResult> SifreSifirla(string token, string yeniSifre, string yeniSifreTekrar)
         {
             if (string.IsNullOrWhiteSpace(token))
@@ -213,9 +217,10 @@ namespace OtobusBiletRezervasyon.Controllers
                 return View();
             }
 
-            if (string.IsNullOrWhiteSpace(yeniSifre) || yeniSifre.Length < 6)
+            if (!IsStrongPassword(yeniSifre))
             {
-                ModelState.AddModelError(string.Empty, "Sifre en az 6 karakter olmalidir.");
+                ModelState.AddModelError(string.Empty,
+                    $"Sifre en az {AppConfig.MinPasswordLength} karakter olmali; en az bir buyuk harf, bir kucuk harf ve bir rakam icermelidir.");
                 ViewBag.Token = token;
                 return View();
             }
@@ -252,6 +257,7 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize]
+        [EnableRateLimiting("PasswordChangePolicy")]
         public async Task<IActionResult> SifreDegistir(string mevcutSifre, string yeniSifre, string yeniSifreTekrar)
         {
             if (yeniSifre != yeniSifreTekrar)
@@ -260,9 +266,9 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Profil");
             }
 
-            if (string.IsNullOrWhiteSpace(yeniSifre) || yeniSifre.Length < 6)
+            if (!IsStrongPassword(yeniSifre))
             {
-                TempData["Hata"] = "Yeni sifre en az 6 karakter olmalidir.";
+                TempData["Hata"] = $"Yeni sifre en az {AppConfig.MinPasswordLength} karakter olmali; en az bir buyuk harf, bir kucuk harf ve bir rakam icermelidir.";
                 return RedirectToAction("Profil");
             }
 
@@ -271,6 +277,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
             if (!success)
             {
+                await _logService.LogAsync(userId, "PASSWORD_CHANGE_FAILED", "Mevcut sifre dogrulamasi basarisiz.", GetClientIpAddress());
                 TempData["Hata"] = "Mevcut sifre hatali.";
                 return RedirectToAction("Profil");
             }
@@ -282,19 +289,15 @@ namespace OtobusBiletRezervasyon.Controllers
 
         #endregion
 
-        #region Helper Methods
 
-        private int GetCurrentUserId()
+        private static bool IsStrongPassword(string? password)
         {
-            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return int.TryParse(userIdClaim, out int userId) ? userId : 0;
-        }
+            if (string.IsNullOrWhiteSpace(password) || password.Length < AppConfig.MinPasswordLength)
+                return false;
 
-        private string GetClientIpAddress()
-        {
-            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return password.Any(char.IsUpper)
+                && password.Any(char.IsLower)
+                && password.Any(char.IsDigit);
         }
-
-        #endregion
     }
 }

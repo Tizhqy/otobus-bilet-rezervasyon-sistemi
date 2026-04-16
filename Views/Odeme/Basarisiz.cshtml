@@ -1,0 +1,30 @@
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Odeme Basarisiz";
+    var biletId = ViewBag.BiletId as int? ?? 0;
+}
+
+<section class="py-5">
+    <div class="container" style="max-width:640px;">
+        <div class="card-HamsiBus">
+            <div class="card-body p-5 text-center">
+                <div style="width:80px;height:80px;background:var(--danger-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;">
+                    <i data-lucide="x-circle" style="width:36px;height:36px;color:var(--danger);"></i>
+                </div>
+                <h4 class="fw-800 mb-2">Payment Failed</h4>
+                <p class="text-muted mb-4">Your payment could not be completed. Please verify your card details and try again.</p>
+
+                <form asp-controller="Odeme" asp-action="TekrarDene" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="biletId" value="@biletId" />
+                    <button type="submit" class="btn btn-primary-HamsiBus">
+                        <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
+                        Try Again
+                    </button>
+                </form>
+                <a asp-controller="Bilet" asp-action="Liste" class="btn btn-ghost ms-2">Back to tickets</a>
+            </div>
+        </div>
+    </div>
+</section>
+

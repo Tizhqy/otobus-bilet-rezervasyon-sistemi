@@ -1,4 +1,5 @@
 using OtobusBiletRezervasyon.DTOs.Ticket;
+using OtobusBiletRezervasyon.Models;
 
 namespace OtobusBiletRezervasyon.Services.Interfaces
 {
@@ -14,6 +15,10 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
 
         // Cancellation
         Task<bool> CancelTicketAsync(int ticketId, int userId);
+
+        // Confirmation (after payment)
+        Task<bool> ConfirmTicketAsync(int ticketId);
+        Task<bool> CompletePaymentAsync(int ticketId, PaymentMethod paymentMethod, string referenceNo);
 
         // Seat Availability
         Task<bool> IsSeatAvailableAsync(int departureId, int seatId);

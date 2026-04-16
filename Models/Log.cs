@@ -26,7 +26,7 @@ namespace OtobusBiletRezervasyon.Models
         public string? IpAddress { get; set; }
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation property
         [ForeignKey("UserId")]

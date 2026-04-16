@@ -1,0 +1,175 @@
+@model OtobusBiletRezervasyon.DTOs.Ticket.TicketResponseDto
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Odeme";
+    var kalanSaniye = ViewBag.KalanSaniye as int? ?? 0;
+    var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
+}
+
+<section class="py-4">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card-HamsiBus">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="mb-0">Complete Payment</h4>
+                            <span class="badge text-bg-warning" id="countdownBadge">Time left: @kalanSaniye s</span>
+                        </div>
+
+                        <form id="paymentForm" asp-controller="Odeme" asp-action="Tamamla" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="BiletId" value="@Model.Id" />
+                            <input type="hidden" name="OdemeYontemi" id="odemeYontemiInput" value="CreditCard" />
+                            <input type="hidden" name="PaymentToken" id="paymentTokenInput" />
+                            <input type="hidden" name="CardLast4" id="cardLast4Input" />
+
+                            <div class="mb-3">
+                                <label class="form-label">Odeme Yontemi</label>
+                                <select class="form-select" id="odemeYontemiSelect" required>
+                                    <option value="CreditCard">Credit Card</option>
+                                    <option value="DebitCard">Debit Card</option>
+                                    <option value="Paypal">PayPal</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Kart Numarasi</label>
+                                <input type="text" class="form-control" id="kartNoInput" placeholder="1234 5678 9012 3456" autocomplete="cc-number" required />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Kart Sahibi</label>
+                                <input type="text" class="form-control" id="kartSahibiInput" placeholder="John Smith" autocomplete="cc-name" required />
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Son Kullanma</label>
+                                    <input type="text" class="form-control" id="sonKullanmaInput" placeholder="MM/YY" autocomplete="cc-exp" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">CVV</label>
+                                    <input type="password" class="form-control" id="cvvInput" placeholder="123" autocomplete="cc-csc" required />
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary-HamsiBus mt-4">
+                                <i data-lucide="lock" style="width:16px;height:16px;"></i>
+                                Odemeyi Tamamla
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="trip-summary">
+                    <h5 class="fw-700">Ticket Summary</h5>
+                    <div class="summary-row">
+                        <span>Route</span>
+                        <span>@Model.Departure.OriginCity - @Model.Departure.DestinationCity</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Date</span>
+                        <span>@Model.Departure.DepartureTime.ToString("dd MMM yyyy HH:mm")</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Seat(s)</span>
+                        <span>@string.Join(", ", Model.Passengers.Select(p => p.SeatNumber))</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total</span>
+                        <span>$@Model.TotalPrice.ToString("0.00")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script nonce="@cspNonce">
+        (function () {
+            let seconds = @kalanSaniye;
+            const badge = document.getElementById("countdownBadge");
+            const form = document.getElementById("paymentForm");
+            const paymentMethodSelect = document.getElementById("odemeYontemiSelect");
+            const paymentMethodInput = document.getElementById("odemeYontemiInput");
+            const paymentTokenInput = document.getElementById("paymentTokenInput");
+            const cardLast4Input = document.getElementById("cardLast4Input");
+            const cardNoInput = document.getElementById("kartNoInput");
+            const cardHolderInput = document.getElementById("kartSahibiInput");
+            const expiryInput = document.getElementById("sonKullanmaInput");
+            const cvvInput = document.getElementById("cvvInput");
+
+            if (paymentMethodSelect && paymentMethodInput) {
+                paymentMethodSelect.addEventListener("change", function () {
+                    paymentMethodInput.value = paymentMethodSelect.value;
+                });
+            }
+
+            if (form) {
+                form.addEventListener("submit", async function (event) {
+                    event.preventDefault();
+
+                    const normalizedCardNo = (cardNoInput?.value || "").replace(/\D/g, "");
+                    const cardHolder = (cardHolderInput?.value || "").trim();
+                    const expiry = (expiryInput?.value || "").trim();
+                    const cvv = (cvvInput?.value || "").trim();
+
+                    if (normalizedCardNo.length < 12 || normalizedCardNo.length > 19) {
+                        showToast("Kart numarasi gecersiz.", "danger");
+                        return;
+                    }
+
+                    if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry)) {
+                        showToast("Son kullanma tarihi MM/YY formatinda olmali.", "danger");
+                        return;
+                    }
+
+                    if (!/^\d{3,4}$/.test(cvv)) {
+                        showToast("CVV gecersiz.", "danger");
+                        return;
+                    }
+
+                    if (cardHolder.length < 2) {
+                        showToast("Kart sahibi bilgisi gecersiz.", "danger");
+                        return;
+                    }
+
+                    if (!window.crypto || !window.crypto.subtle) {
+                        showToast("Tarayici guvenli odeme tokeni uretemedi.", "danger");
+                        return;
+                    }
+
+                    const randomBytes = new Uint8Array(16);
+                    window.crypto.getRandomValues(randomBytes);
+                    const nonce = Array.from(randomBytes).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+                    const payload = normalizedCardNo + "|" + cardHolder + "|" + expiry + "|" + cvv + "|" + Date.now() + "|" + nonce;
+                    const encoded = new TextEncoder().encode(payload);
+                    const hashBuffer = await window.crypto.subtle.digest("SHA-256", encoded);
+                    const hashHex = Array.from(new Uint8Array(hashBuffer))
+                        .map(function (b) { return b.toString(16).padStart(2, "0"); })
+                        .join("");
+
+                    paymentTokenInput.value = hashHex;
+                    cardLast4Input.value = normalizedCardNo.slice(-4);
+                    paymentMethodInput.value = paymentMethodSelect ? paymentMethodSelect.value : paymentMethodInput.value;
+
+                    // Keep sensitive values out of the final request payload.
+                    if (cvvInput) cvvInput.value = "";
+                    form.submit();
+                });
+            }
+
+            if (!badge || seconds <= 0) return;
+
+            const timer = setInterval(function () {
+                seconds--;
+                badge.textContent = "Time left: " + seconds + " s";
+                if (seconds <= 0) {
+                    clearInterval(timer);
+                    window.location.href = '@Url.Action("Basarisiz", "Odeme", new { biletId = Model.Id })';
+                }
+            }, 1000);
+        })();
+    </script>
+}
+

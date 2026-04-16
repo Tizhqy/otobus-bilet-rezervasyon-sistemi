@@ -27,7 +27,7 @@ namespace OtobusBiletRezervasyon.Models
         public bool IsActive { get; set; } = true;
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation property
         public virtual ICollection<Departure> Departures { get; set; } = new List<Departure>();
