@@ -2,11 +2,6 @@
 @{
     Layout = "_Layout";
     ViewData["Title"] = "Admin Dashboard";
-    if (!User.IsInRole("admin") && !User.IsInRole("Admin"))
-    {
-        Context.Response.Redirect("/");
-        return;
-    }
 }
 
 <section class="py-4">
@@ -119,8 +114,14 @@
                             <tbody>
                                 @foreach (var route in Model.Routes)
                                 {
+                                    var originDisplay = !string.IsNullOrWhiteSpace(route.OriginStation?.City)
+                                        ? route.OriginStation.City
+                                        : !string.IsNullOrWhiteSpace(route.OriginStation?.Name) ? route.OriginStation.Name : "-";
+                                    var destinationDisplay = !string.IsNullOrWhiteSpace(route.DestinationStation?.City)
+                                        ? route.DestinationStation.City
+                                        : !string.IsNullOrWhiteSpace(route.DestinationStation?.Name) ? route.DestinationStation.Name : "-";
                                     <tr>
-                                        <td>@route.OriginStation.City &rarr; @route.DestinationStation.City</td>
+                                        <td>@originDisplay &rarr; @destinationDisplay</td>
                                         <td>@(route.DistanceKm?.ToString() ?? "-") km</td>
                                         <td>@(route.DurationMinutes?.ToString() ?? "-") min</td>
                                         <td>

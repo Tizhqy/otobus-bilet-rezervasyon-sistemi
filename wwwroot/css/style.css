@@ -48,6 +48,29 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Toasts ── */
+.hamsibus-toast-container {
+  bottom: 0;
+  right: 0;
+  z-index: 1080;
+}
+.hamsibus-toast {
+  min-width: 320px;
+  max-width: 420px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+@media (max-width: 576px) {
+  .hamsibus-toast-container {
+    right: auto;
+    left: 0;
+  }
+  .hamsibus-toast {
+    min-width: 0;
+    width: calc(100vw - 1.5rem);
+  }
+}
+
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-dark);
   font-weight: 700;

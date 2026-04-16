@@ -4,12 +4,6 @@
 @{
     Layout = "_Layout";
     ViewData["Title"] = "Satin Al";
-    if (!(User.Identity?.IsAuthenticated ?? false))
-    {
-        Context.Response.Redirect("/Auth/Giris");
-        return;
-    }
-
     var sefer = ViewBag.Sefer as DepartureResponseDto;
     var secilenKoltuk = ViewBag.SecilenKoltuk as SeatInfoDto;
 
@@ -35,6 +29,7 @@
     {
         Model.Payment.TransactionId = Guid.NewGuid().ToString("N");
     }
+    var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
 }
 
 <div class="container">
@@ -62,7 +57,6 @@
             <div class="col-lg-8">
                 <form asp-controller="Bilet" asp-action="SatinAl" method="post">
                     @Html.AntiForgeryToken()
-                    @Html.ValidationSummary(true, "", new { @class = "alert alert-danger" })
 
                     <input asp-for="DepartureId" type="hidden" />
                     <input asp-for="Passengers[0].SeatId" type="hidden" />
@@ -119,13 +113,13 @@
                             </div>
 
                             <div class="d-flex flex-column gap-3">
-                                <button type="button" class="payment-option active text-start" onclick="selectPayment('CreditCard', this)">
+                                <button type="button" class="payment-option active text-start" data-payment-method="CreditCard">
                                     <div class="d-flex align-items-center gap-2">
                                         <i data-lucide="credit-card" style="width:20px;height:20px;color:var(--primary);"></i>
                                         <div>Credit / Debit Card</div>
                                     </div>
                                 </button>
-                                <button type="button" class="payment-option text-start" onclick="selectPayment('Paypal', this)">
+                                <button type="button" class="payment-option text-start" data-payment-method="Paypal">
                                     <div class="d-flex align-items-center gap-2">
                                         <i data-lucide="wallet" style="width:20px;height:20px;color:var(--accent);"></i>
                                         <div>PayPal</div>
@@ -188,7 +182,7 @@
 </section>
 
 @section Scripts {
-    <script>
+    <script nonce="@cspNonce">
         function selectPayment(method, buttonEl) {
             document.querySelectorAll(".payment-option").forEach(function (el) {
                 el.classList.remove("active");
@@ -196,6 +190,14 @@
             buttonEl.classList.add("active");
             document.getElementById("paymentMethodInput").value = method;
         }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll(".payment-option[data-payment-method]").forEach(function (buttonEl) {
+                buttonEl.addEventListener("click", function () {
+                    selectPayment(buttonEl.getAttribute("data-payment-method"), buttonEl);
+                });
+            });
+        });
     </script>
 }
 

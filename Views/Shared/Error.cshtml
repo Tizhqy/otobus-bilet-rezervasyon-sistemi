@@ -1,5 +1,6 @@
 @{
     ViewData["Title"] = "Hata";
+    var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
 }
 
 <section class="py-5">
@@ -16,7 +17,7 @@
                         <i data-lucide="home" style="width:18px;height:18px;"></i>
                         Ana Sayfa
                     </a>
-                    <button onclick="history.back()" class="btn btn-ghost px-4 py-2">
+                    <button id="goBackButton" type="button" class="btn btn-ghost px-4 py-2">
                         <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
                         Geri Don
                     </button>
@@ -25,3 +26,16 @@
         </div>
     </div>
 </section>
+
+@section Scripts {
+    <script nonce="@cspNonce">
+        document.addEventListener("DOMContentLoaded", function () {
+            const goBackButton = document.getElementById("goBackButton");
+            if (!goBackButton) return;
+
+            goBackButton.addEventListener("click", function () {
+                window.history.back();
+            });
+        });
+    </script>
+}

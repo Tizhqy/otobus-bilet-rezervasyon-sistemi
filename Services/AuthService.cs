@@ -18,6 +18,7 @@ namespace OtobusBiletRezervasyon.Services
         private readonly IUserRepository _userRepository;
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
+        private readonly ILogService _logService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<AuthService> _logger;
 
@@ -25,18 +26,29 @@ namespace OtobusBiletRezervasyon.Services
             IUserRepository userRepository,
             IConfiguration configuration,
             IEmailService emailService,
+            ILogService logService,
             IHttpContextAccessor httpContextAccessor,
             ILogger<AuthService> logger)
         {
             _userRepository = userRepository;
             _configuration = configuration;
             _emailService = emailService;
+            _logService = logService;
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto)
         {
+            if (!IsStrongPassword(registerDto.Password))
+            {
+                return new AuthResponseDto
+                {
+                    Success = false,
+                    Message = $"Password must be at least {AppConfig.MinPasswordLength} characters and include uppercase, lowercase and numeric characters."
+                };
+            }
+
             // Check if email already exists
             if (await _userRepository.EmailExistsAsync(registerDto.Email))
             {
@@ -134,12 +146,8 @@ namespace OtobusBiletRezervasyon.Services
                 }
             };
 
-            // Handle Remember Me
-            if (loginDto.RememberMe)
-            {
-                var rememberToken = await GenerateRememberTokenAsync(user.Id);
-                // The remember token should be returned separately or stored in a cookie by the controller
-            }
+            // Remember-token login is intentionally not issued from this MVC flow.
+            // Cookie persistence is controlled by AuthenticationProperties in AuthController.
 
             return response;
         }
@@ -215,55 +223,6 @@ namespace OtobusBiletRezervasyon.Services
             }
         }
 
-        public async Task<string> GenerateRememberTokenAsync(int userId)
-        {
-            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-            await _userRepository.UpdateRememberTokenAsync(userId, token);
-            return token;
-        }
-
-        public async Task<AuthResponseDto> LoginWithRememberTokenAsync(string token)
-        {
-            var user = await _userRepository.GetByRememberTokenAsync(token);
-
-            if (user == null)
-            {
-                return new AuthResponseDto
-                {
-                    Success = false,
-                    Message = "Invalid or expired remember token."
-                };
-            }
-
-            if (!user.IsActive)
-            {
-                return new AuthResponseDto
-                {
-                    Success = false,
-                    Message = "Account is deactivated."
-                };
-            }
-
-            var jwtToken = await GenerateJwtTokenAsync(user.Id);
-
-            return new AuthResponseDto
-            {
-                Success = true,
-                Message = "Login successful.",
-                Token = jwtToken,
-                ExpiresAt = DateTime.UtcNow.AddHours(GetTokenExpirationHours()),
-                User = new UserInfoDto
-                {
-                    Id = user.Id,
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    Email = user.Email,
-                    Phone = user.Phone,
-                    Role = user.Role.Name
-                }
-            };
-        }
-
         public async Task RevokeRememberTokenAsync(int userId)
         {
             await _userRepository.UpdateRememberTokenAsync(userId, null);
@@ -271,8 +230,17 @@ namespace OtobusBiletRezervasyon.Services
 
         public async Task<bool> RequestPasswordResetAsync(string email)
         {
+            if (string.IsNullOrWhiteSpace(email))
+                return true;
+
             var user = await _userRepository.GetByEmailAsync(email);
-            if (user == null) return false;
+            if (user == null)
+            {
+                await Task.Delay(150);
+                return true;
+            }
+
+            await _userRepository.MarkAllPasswordResetsAsUsedAsync(user.Id);
 
             var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
@@ -289,17 +257,20 @@ namespace OtobusBiletRezervasyon.Services
             var resetLink = BuildPasswordResetLink(token);
             if (string.IsNullOrWhiteSpace(resetLink))
             {
+                await _userRepository.MarkPasswordResetAsUsedAsync(passwordReset.Id);
                 _logger.LogWarning("Sifre sifirlama baglantisi uretilemedi. App:BaseUrl ayarini kontrol edin.");
-                return false;
+                return true;
             }
 
             var mailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, resetLink);
             if (!mailSent)
             {
+                await _userRepository.MarkPasswordResetAsUsedAsync(passwordReset.Id);
                 _logger.LogWarning("Sifre sifirlama e-postasi gonderilemedi. UserId={UserId}", user.Id);
-                return false;
+                return true;
             }
 
+            await _logService.LogPasswordResetRequestAsync(user.Id, GetClientIpAddress());
             return true;
         }
 
@@ -314,13 +285,18 @@ namespace OtobusBiletRezervasyon.Services
 
         public async Task<bool> ResetPasswordAsync(string token, string newPassword)
         {
-            var passwordReset = await _userRepository.GetPasswordResetByTokenAsync(token);
-            if (passwordReset == null) return false;
+            if (string.IsNullOrWhiteSpace(token))
+                return false;
+
+            if (!IsStrongPassword(newPassword))
+                return false;
 
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
-            await _userRepository.UpdatePasswordAsync(passwordReset.UserId, passwordHash);
-            await _userRepository.MarkPasswordResetAsUsedAsync(passwordReset.Id);
+            var userId = await _userRepository.ResetPasswordWithTokenAsync(token, passwordHash);
+            if (!userId.HasValue)
+                return false;
 
+            await _logService.LogPasswordChangeAsync(userId.Value, GetClientIpAddress());
             return true;
         }
 
@@ -344,6 +320,9 @@ namespace OtobusBiletRezervasyon.Services
         {
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null) return false;
+
+            if (!IsStrongPassword(newPassword))
+                return false;
 
             if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
             {
@@ -379,6 +358,21 @@ namespace OtobusBiletRezervasyon.Services
                 return null;
 
             return $"{baseUrl}/Auth/SifreSifirla?token={Uri.EscapeDataString(token)}";
+        }
+
+        private string GetClientIpAddress()
+        {
+            return _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        }
+
+        private static bool IsStrongPassword(string? password)
+        {
+            if (string.IsNullOrWhiteSpace(password) || password.Length < AppConfig.MinPasswordLength)
+                return false;
+
+            return password.Any(char.IsUpper)
+                && password.Any(char.IsLower)
+                && password.Any(char.IsDigit);
         }
     }
 }

@@ -27,7 +27,7 @@ namespace OtobusBiletRezervasyon.Models
         public bool Used { get; set; } = false;
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation property
         [ForeignKey("UserId")]

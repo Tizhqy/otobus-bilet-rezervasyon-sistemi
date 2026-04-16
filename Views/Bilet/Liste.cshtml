@@ -2,12 +2,6 @@
 @{
     Layout = "_Layout";
     ViewData["Title"] = "Biletlerim";
-    if (!(User.Identity?.IsAuthenticated ?? false))
-    {
-        Context.Response.Redirect("/Auth/Giris");
-        return;
-    }
-
     var biletler = Model.ToList();
     var upcomingCount = biletler.Count(b => b.Departure.DepartureTime > DateTime.UtcNow && !b.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase));
 }

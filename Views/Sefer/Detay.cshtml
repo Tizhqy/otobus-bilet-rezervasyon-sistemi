@@ -4,6 +4,7 @@
     ViewData["Title"] = "Sefer Detay";
     var sefer = Model.Sefer;
     var sure = sefer.ArrivalTime - sefer.DepartureTime;
+    var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
 }
 
 <div class="container">
@@ -51,8 +52,7 @@
                                     <button type="button"
                                             class="seat"
                                             data-seat-id="@seat.Id"
-                                            data-seat="@seat.SeatNumber"
-                                            onclick="toggleSeat(this)">
+                                            data-seat="@seat.SeatNumber">
                                         @seat.SeatNumber
                                     </button>
                                 }
@@ -156,7 +156,7 @@
 </section>
 
 @section Scripts {
-    <script>
+    <script nonce="@cspNonce">
         let selectedSeatId = 0;
         const checkoutBase = '@Url.Action("SatinAl", "Bilet", new { seferId = sefer.Id, koltukId = "__SEAT_ID__" })';
 
@@ -176,6 +176,14 @@
             continueBtn.style.pointerEvents = "auto";
             continueBtn.style.opacity = "1";
         }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll(".seat[data-seat-id]:not(.taken):not([disabled])").forEach(function (seatEl) {
+                seatEl.addEventListener("click", function () {
+                    toggleSeat(seatEl);
+                });
+            });
+        });
     </script>
 }
 

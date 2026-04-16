@@ -43,7 +43,11 @@ namespace OtobusBiletRezervasyon
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Station configuration - no additional config needed
+            // Station configuration
+            modelBuilder.Entity<Station>(entity =>
+            {
+                entity.HasIndex(s => new { s.Name, s.City }).IsUnique();
+            });
 
             // Route configuration
             modelBuilder.Entity<Route>(entity =>
@@ -169,6 +173,8 @@ namespace OtobusBiletRezervasyon
             // PasswordReset configuration
             modelBuilder.Entity<PasswordReset>(entity =>
             {
+                entity.HasIndex(pr => pr.Token).IsUnique();
+
                 entity.HasOne(pr => pr.User)
                     .WithMany(u => u.PasswordResets)
                     .HasForeignKey(pr => pr.UserId)

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using OtobusBiletRezervasyon.DTOs.ViewModels;
+using OtobusBiletRezervasyon.Services.FlowModels;
 using OtobusBiletRezervasyon.Services.Interfaces;
 
 namespace OtobusBiletRezervasyon.Controllers
@@ -8,19 +9,11 @@ namespace OtobusBiletRezervasyon.Controllers
     [Authorize]
     public class OdemeController : BaseController
     {
-        private readonly ITicketService _ticketService;
-        private readonly ILogService _logService;
-        private readonly IPaymentService _paymentService;
+        private readonly IOdemeFlowService _odemeFlowService;
 
-
-        public OdemeController(
-            ITicketService ticketService,
-            ILogService logService,
-            IPaymentService paymentService)
+        public OdemeController(IOdemeFlowService odemeFlowService)
         {
-            _ticketService = ticketService;
-            _logService = logService;
-            _paymentService = paymentService;
+            _odemeFlowService = odemeFlowService;
         }
 
         #region Odeme (Payment Page)
@@ -28,49 +21,23 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> Odeme(int biletId)
         {
-            if (biletId <= 0)
-            {
-                TempData["Hata"] = "Gecersiz bilet.";
-                return RedirectToAction("Liste", "Bilet");
-            }
-
             int userId = GetCurrentUserId();
-            var ticket = await _ticketService.GetTicketByIdAsync(biletId);
+            var result = await _odemeFlowService.HazirlaOdemeSayfasiAsync(biletId, userId);
 
-            if (ticket == null)
+            if (!result.Success)
             {
-                TempData["Hata"] = "Bilet bulunamadi.";
-                return RedirectToAction("Liste", "Bilet");
+                TempData["Hata"] = result.Message;
+                return result.Type switch
+                {
+                    ServiceResultType.NotFound => RedirectToAction("Liste", "Bilet"),
+                    ServiceResultType.Forbidden => RedirectToAction("Liste", "Bilet"),
+                    ServiceResultType.Expired => RedirectToAction("Index", "Sefer"),
+                    _ => RedirectToAction("Liste", "Bilet")
+                };
             }
 
-            // Ownership kontrolu
-            if (ticket.UserId != userId)
-            {
-                TempData["Hata"] = "Bu bilete erisim yetkiniz yok.";
-                return RedirectToAction("Liste", "Bilet");
-            }
-
-            if (!ticket.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) &&
-                !ticket.Status.Equals("BEKLEMEDE", StringComparison.OrdinalIgnoreCase))
-            {
-                TempData["Hata"] = "Bu bilet icin odeme yapilamaz. Durum: " + ticket.Status;
-                return RedirectToAction("Liste", "Bilet");
-            }
-
-            var timeRemaining = ticket.CreatedAt.AddMinutes(AppConfig.PaymentTimeoutMinutes) - DateTime.UtcNow;
-
-            if (timeRemaining.TotalSeconds <= 0)
-            {
-                await _ticketService.CancelTicketAsync(biletId, userId);
-                await _logService.LogAsync(userId, "ODEME_ZAMAN_ASIMI",
-                    $"Bilet #{biletId} odeme suresi doldu, iptal edildi.", GetClientIpAddress());
-
-                TempData["Hata"] = "Odeme suresi doldu. Lutfen tekrar bilet alin.";
-                return RedirectToAction("Index", "Sefer");
-            }
-
-            ViewBag.KalanSaniye = (int)timeRemaining.TotalSeconds;
-            return View(ticket);
+            ViewBag.KalanSaniye = result.Data!.KalanSaniye;
+            return View(result.Data.Ticket);
         }
 
         #endregion
@@ -79,62 +46,34 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Tamamla(
-            int biletId,
-            string odemeYontemi,
-            string kartNo,
-            string kartSahibi,
-            string sonKullanma,
-            string cvv)
+        public async Task<IActionResult> Tamamla(OdemeTamamlamaIstekDto request)
         {
+            if (!ModelState.IsValid)
+            {
+                TempData["Hata"] = "Odeme bilgileri gecersiz.";
+                return RedirectToAction("Odeme", new { biletId = request.BiletId });
+            }
+
             int userId = GetCurrentUserId();
+            var result = await _odemeFlowService.OdemeyiTamamlaAsync(
+                request.BiletId, userId, request.OdemeYontemi, request.PaymentToken, request.CardLast4);
 
-            var ticket = await _ticketService.GetTicketByIdAsync(biletId);
-
-            if (ticket == null)
+            if (!result.Success)
             {
-                TempData["Hata"] = "Bilet bulunamadi.";
-                return RedirectToAction("Liste", "Bilet");
+                TempData["Hata"] = result.Message;
+
+                return result.Type switch
+                {
+                    ServiceResultType.NotFound => RedirectToAction("Liste", "Bilet"),
+                    ServiceResultType.Forbidden => RedirectToAction("Liste", "Bilet"),
+                    ServiceResultType.Expired => RedirectToAction("Index", "Sefer"),
+                    ServiceResultType.ValidationError => RedirectToAction("Odeme", new { biletId = request.BiletId }),
+                    _ => RedirectToAction("Liste", "Bilet")
+                };
             }
 
-            // Ownership kontrolu
-            if (ticket.UserId != userId)
-            {
-                TempData["Hata"] = "Bu bilete erisim yetkiniz yok.";
-                return RedirectToAction("Liste", "Bilet");
-            }
-
-            if (!ticket.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) &&
-                !ticket.Status.Equals("BEKLEMEDE", StringComparison.OrdinalIgnoreCase))
-            {
-                TempData["Hata"] = "Gecersiz islem. Bilet durumu: " + ticket.Status;
-                return RedirectToAction("Liste", "Bilet");
-            }
-
-            if (ticket.CreatedAt.AddMinutes(AppConfig.PaymentTimeoutMinutes) < DateTime.UtcNow)
-            {
-                await _ticketService.CancelTicketAsync(biletId, userId);
-                TempData["Hata"] = "Odeme suresi doldu.";
-                return RedirectToAction("Index", "Sefer");
-            }
-
-            if (!_paymentService.ValidateCard(kartNo, sonKullanma, cvv))
-            {
-                TempData["Hata"] = "Kart bilgileri gecersiz.";
-                return RedirectToAction("Odeme", new { biletId });
-            }
-
-            var referenceNo = _paymentService.GenerateReferenceNumber();
-
-            // Bilet durumunu Confirmed olarak guncelle
-            await _ticketService.ConfirmTicketAsync(biletId);
-
-            await _logService.LogAsync(userId, "ODEME_TAMAMLA",
-                $"Bilet #{biletId} odendi. Referans: {referenceNo}, Yontem: {odemeYontemi}",
-                GetClientIpAddress());
-
-            TempData["Basari"] = $"Odeme basarili! Referans: {referenceNo}";
-            return RedirectToAction("Detay", "Bilet", new { id = biletId });
+            TempData["Basari"] = $"Odeme basarili! Referans: {result.Data!.ReferenceNo}";
+            return RedirectToAction("Detay", "Bilet", new { id = request.BiletId });
         }
 
         #endregion
@@ -162,21 +101,14 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> KalanSure(int biletId)
         {
-            var ticket = await _ticketService.GetTicketByIdAsync(biletId);
+            int userId = GetCurrentUserId();
+            var state = await _odemeFlowService.KalanSureAsync(biletId, userId);
+            if (!state.authorized)
+                return Unauthorized();
 
-            if (ticket == null)
-                return Json(new { expired = true, seconds = 0 });
-
-            var timeRemaining = ticket.CreatedAt.AddMinutes(AppConfig.PaymentTimeoutMinutes) - DateTime.UtcNow;
-
-            if (timeRemaining.TotalSeconds <= 0)
-                return Json(new { expired = true, seconds = 0 });
-
-            return Json(new { expired = false, seconds = (int)timeRemaining.TotalSeconds });
+            return Json(new { expired = state.expired, seconds = state.seconds });
         }
 
         #endregion
-
-
     }
 }

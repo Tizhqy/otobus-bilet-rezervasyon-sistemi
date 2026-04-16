@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using OtobusBiletRezervasyon.DTOs.Ticket;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Repositories.Interfaces;
@@ -11,18 +10,15 @@ namespace OtobusBiletRezervasyon.Services
         private readonly ITicketRepository _ticketRepository;
         private readonly ISeatRepository _seatRepository;
         private readonly IDepartureRepository _departureRepository;
-        private readonly AppDbContext _context;
 
         public TicketService(
             ITicketRepository ticketRepository,
             ISeatRepository seatRepository,
-            IDepartureRepository departureRepository,
-            AppDbContext context)
+            IDepartureRepository departureRepository)
         {
             _ticketRepository = ticketRepository;
             _seatRepository = seatRepository;
             _departureRepository = departureRepository;
-            _context = context;
         }
 
         public async Task<TicketResponseDto?> GetTicketByIdAsync(int ticketId)
@@ -47,10 +43,7 @@ namespace OtobusBiletRezervasyon.Services
 
         public async Task<TicketResponseDto> PurchaseTicketAsync(int userId, CreateTicketDto createTicketDto)
         {
-            // Use transaction for atomic purchase
-            using var transaction = await _context.Database.BeginTransactionAsync();
-
-            try
+            return await _ticketRepository.ExecuteInTransactionAsync(async () =>
             {
                 // Validate departure exists and is active
                 var departure = await _departureRepository.GetByIdWithDetailsAsync(createTicketDto.DepartureId);
@@ -59,9 +52,10 @@ namespace OtobusBiletRezervasyon.Services
                     throw new InvalidOperationException("Departure not found or is not active.");
                 }
 
-                if (departure.DepartureTime <= DateTime.Now)
+                if (IsTicketSalesClosed(departure.DepartureTime))
                 {
-                    throw new InvalidOperationException("Cannot book tickets for past departures.");
+                    throw new InvalidOperationException(
+                        $"Ticket sales close {AppConfig.TicketSalesCutoffMinutesBeforeDeparture} minutes before departure.");
                 }
 
                 // Validate all seats are available
@@ -114,31 +108,22 @@ namespace OtobusBiletRezervasyon.Services
                     TicketId = ticket.Id,
                     Amount = createTicketDto.Payment.Amount,
                     Method = Enum.Parse<PaymentMethod>(createTicketDto.Payment.Method, true),
-                    Status = PaymentStatus.Completed,
-                    TransactionId = createTicketDto.Payment.TransactionId,
-                    PaidAt = DateTime.Now
+                    Status = PaymentStatus.Pending,
+                    TransactionId = null,
+                    PaidAt = null
                 };
 
                 await _ticketRepository.CreatePaymentAsync(payment);
 
-                await transaction.CommitAsync();
-
                 // Return the created ticket with details
                 var createdTicket = await _ticketRepository.GetByIdWithDetailsAsync(ticket.Id);
                 return MapToTicketResponseDto(createdTicket!);
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+            });
         }
 
         public async Task<bool> CancelTicketAsync(int ticketId, int userId)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-
-            try
+            return await _ticketRepository.ExecuteInTransactionAsync(async () =>
             {
                 var ticket = await _ticketRepository.GetByIdWithDetailsAsync(ticketId);
 
@@ -160,7 +145,7 @@ namespace OtobusBiletRezervasyon.Services
                 }
 
                 // Can't cancel tickets when departure is too close
-                var minutesUntilDeparture = (ticket.Departure.DepartureTime - DateTime.Now).TotalMinutes;
+                var minutesUntilDeparture = (ticket.Departure.DepartureTime - DateTime.UtcNow).TotalMinutes;
                 if (minutesUntilDeparture <= AppConfig.MinCancellationMinutesBeforeDeparture)
                 {
                     return false;
@@ -178,17 +163,14 @@ namespace OtobusBiletRezervasyon.Services
                 // Update payment status to refunded
                 if (ticket.Payment != null)
                 {
-                    await _ticketRepository.UpdatePaymentStatusAsync(ticket.Payment.Id, PaymentStatus.Refunded);
+                    var paymentStatus = ticket.Payment.Status == PaymentStatus.Completed
+                        ? PaymentStatus.Refunded
+                        : PaymentStatus.Failed;
+                    await _ticketRepository.UpdatePaymentStatusAsync(ticket.Payment.Id, paymentStatus);
                 }
 
-                await transaction.CommitAsync();
                 return true;
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+            });
         }
 
         public async Task<bool> ConfirmTicketAsync(int ticketId)
@@ -203,24 +185,41 @@ namespace OtobusBiletRezervasyon.Services
             return true;
         }
 
+        public async Task<bool> CompletePaymentAsync(int ticketId, PaymentMethod paymentMethod, string referenceNo)
+        {
+            return await _ticketRepository.ExecuteInTransactionAsync(async () =>
+            {
+                var ticket = await _ticketRepository.GetByIdWithDetailsAsync(ticketId);
+                if (ticket == null || ticket.Payment == null)
+                    return false;
+
+                if (ticket.Status != TicketStatus.Pending || ticket.Payment.Status != PaymentStatus.Pending)
+                    return false;
+
+                ticket.Payment.Method = paymentMethod;
+                ticket.Payment.Status = PaymentStatus.Completed;
+                ticket.Payment.TransactionId = referenceNo;
+                ticket.Payment.PaidAt = DateTime.UtcNow;
+
+                await _ticketRepository.UpdatePaymentAsync(ticket.Payment);
+                await _ticketRepository.UpdateStatusAsync(ticketId, TicketStatus.Confirmed);
+                return true;
+            });
+        }
+
         public async Task<bool> IsSeatAvailableAsync(int departureId, int seatId)
         {
-            var seat = await _seatRepository.GetByIdAsync(seatId);
-            return seat != null
-                && seat.DepartureId == departureId
-                && seat.Status == SeatStatus.Available;
+            return await _seatRepository.AreSeatsAvailableAsync(departureId, new[] { seatId });
         }
 
         public async Task<bool> AreSeatAvailableAsync(int departureId, IEnumerable<int> seatIds)
         {
-            foreach (var seatId in seatIds)
-            {
-                if (!await IsSeatAvailableAsync(departureId, seatId))
-                {
-                    return false;
-                }
-            }
-            return true;
+            return await _seatRepository.AreSeatsAvailableAsync(departureId, seatIds);
+        }
+
+        private static bool IsTicketSalesClosed(DateTime departureTimeUtc)
+        {
+            return departureTimeUtc <= DateTime.UtcNow.AddMinutes(AppConfig.TicketSalesCutoffMinutesBeforeDeparture);
         }
 
         private static TicketResponseDto MapToTicketResponseDto(Ticket ticket)

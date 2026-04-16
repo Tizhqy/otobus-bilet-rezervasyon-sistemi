@@ -88,7 +88,6 @@ namespace OtobusBiletRezervasyon.Controllers
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
-                ViewBag.ErrorMessage = result.Message;
                 ViewBag.ReturnUrl = returnUrl;
                 return View(model);
             }
@@ -202,6 +201,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("PasswordResetPolicy")]
         public async Task<IActionResult> SifreSifirla(string token, string yeniSifre, string yeniSifreTekrar)
         {
             if (string.IsNullOrWhiteSpace(token))
@@ -217,9 +217,10 @@ namespace OtobusBiletRezervasyon.Controllers
                 return View();
             }
 
-            if (string.IsNullOrWhiteSpace(yeniSifre) || yeniSifre.Length < 6)
+            if (!IsStrongPassword(yeniSifre))
             {
-                ModelState.AddModelError(string.Empty, "Sifre en az 6 karakter olmalidir.");
+                ModelState.AddModelError(string.Empty,
+                    $"Sifre en az {AppConfig.MinPasswordLength} karakter olmali; en az bir buyuk harf, bir kucuk harf ve bir rakam icermelidir.");
                 ViewBag.Token = token;
                 return View();
             }
@@ -256,6 +257,7 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize]
+        [EnableRateLimiting("PasswordChangePolicy")]
         public async Task<IActionResult> SifreDegistir(string mevcutSifre, string yeniSifre, string yeniSifreTekrar)
         {
             if (yeniSifre != yeniSifreTekrar)
@@ -264,9 +266,9 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Profil");
             }
 
-            if (string.IsNullOrWhiteSpace(yeniSifre) || yeniSifre.Length < 6)
+            if (!IsStrongPassword(yeniSifre))
             {
-                TempData["Hata"] = "Yeni sifre en az 6 karakter olmalidir.";
+                TempData["Hata"] = $"Yeni sifre en az {AppConfig.MinPasswordLength} karakter olmali; en az bir buyuk harf, bir kucuk harf ve bir rakam icermelidir.";
                 return RedirectToAction("Profil");
             }
 
@@ -275,6 +277,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
             if (!success)
             {
+                await _logService.LogAsync(userId, "PASSWORD_CHANGE_FAILED", "Mevcut sifre dogrulamasi basarisiz.", GetClientIpAddress());
                 TempData["Hata"] = "Mevcut sifre hatali.";
                 return RedirectToAction("Profil");
             }
@@ -287,5 +290,14 @@ namespace OtobusBiletRezervasyon.Controllers
         #endregion
 
 
+        private static bool IsStrongPassword(string? password)
+        {
+            if (string.IsNullOrWhiteSpace(password) || password.Length < AppConfig.MinPasswordLength)
+                return false;
+
+            return password.Any(char.IsUpper)
+                && password.Any(char.IsLower)
+                && password.Any(char.IsDigit);
+        }
     }
 }

@@ -53,24 +53,59 @@ function showToast(message, type) {
     warning: 'alert-triangle',
     info: 'info'
   };
-  const colors = {
+  const backgrounds = {
     success: 'var(--success)',
     danger: 'var(--danger)',
     warning: 'var(--warning)',
     info: 'var(--info)'
   };
+  const textColors = {
+    success: '#ffffff',
+    danger: '#ffffff',
+    warning: '#1e293b',
+    info: '#ffffff'
+  };
+  const normalizedType = backgrounds[type] ? type : 'success';
 
   const toast = document.createElement('div');
-  toast.className = 'toast show fade-in';
+  toast.className = 'toast show fade-in border-0 hamsibus-toast';
   toast.setAttribute('role', 'alert');
-  toast.innerHTML =
-    '<div class="toast-body d-flex align-items-center gap-2" style="font-weight:500;">' +
-      '<i data-lucide="' + icons[type] + '" style="width:18px;height:18px;color:' + colors[type] + '"></i>' +
-      '<span>' + message + '</span>' +
-      '<button type="button" class="btn-close ms-auto" data-bs-dismiss="toast" style="font-size:0.65rem;"></button>' +
-    '</div>';
+  toast.style.backgroundColor = backgrounds[normalizedType];
+  toast.style.color = textColors[normalizedType];
+
+  const body = document.createElement('div');
+  body.className = 'toast-body d-flex align-items-center gap-2';
+  body.style.fontWeight = '600';
+
+  const icon = document.createElement('i');
+  icon.setAttribute('data-lucide', icons[normalizedType]);
+  icon.style.width = '18px';
+  icon.style.height = '18px';
+
+  const text = document.createElement('span');
+  text.textContent = message;
+
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'btn-close ms-auto';
+  closeButton.setAttribute('data-bs-dismiss', 'toast');
+  closeButton.style.fontSize = '0.65rem';
+  if (textColors[normalizedType] === '#ffffff') {
+    closeButton.style.filter = 'invert(1) grayscale(100%) brightness(200%)';
+  }
+
+  body.appendChild(icon);
+  body.appendChild(text);
+  body.appendChild(closeButton);
+  toast.appendChild(body);
   toastContainer.appendChild(toast);
   if (typeof lucide !== 'undefined') { lucide.createIcons(); }
+
+  closeButton.addEventListener('click', function () {
+    toast.classList.remove('show');
+    setTimeout(function () { toast.remove(); }, 250);
+  });
+
   setTimeout(function () {
     toast.classList.remove('show');
     setTimeout(function () { toast.remove(); }, 300);

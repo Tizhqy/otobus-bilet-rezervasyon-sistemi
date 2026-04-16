@@ -1,50 +1,34 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using OtobusBiletRezervasyon.DTOs.ViewModels;
+using Microsoft.AspNetCore.RateLimiting;
 using OtobusBiletRezervasyon.Models;
+using OtobusBiletRezervasyon.Services.FlowModels;
 using OtobusBiletRezervasyon.Services.Interfaces;
 
 namespace OtobusBiletRezervasyon.Controllers
 {
-    [Authorize(Roles = "Admin,admin")]
+    [Authorize(Policy = "AdminOnly")]
     [Route("Admin/[action]/{id?}")]
     public class AdminController : BaseController
     {
-        private readonly IAdminService _adminService;
-        private readonly ILogService _logService;
+        private readonly IAdminFlowService _adminFlowService;
 
-        public AdminController(IAdminService adminService, ILogService logService)
+        public AdminController(IAdminFlowService adminFlowService)
         {
-            _adminService = adminService;
-            _logService = logService;
+            _adminFlowService = adminFlowService;
         }
-
-        #region Dashboard
 
         [HttpGet]
         public async Task<IActionResult> Dashboard()
         {
-            var model = new AdminDashboardViewModel
-            {
-                Stats = await _adminService.GetDashboardStatsAsync(),
-                RecentLogs = (await _logService.GetRecentLogsAsync(10)).ToList(),
-                Buses = (await _adminService.GetAllBusesAsync()).Take(10).ToList(),
-                Routes = (await _adminService.GetAllRoutesAsync()).Take(10).ToList(),
-                Users = (await _adminService.GetAllUsersAsync()).Take(10).ToList()
-            };
-
+            var model = await _adminFlowService.GetDashboardAsync();
             return View(model);
         }
-
-        #endregion
-
-        #region Otobus Yonetimi (Bus Management)
 
         [HttpGet]
         public async Task<IActionResult> Otobusler()
         {
-            var buses = await _adminService.GetAllBusesAsync();
+            var buses = await _adminFlowService.GetOtobuslerAsync();
             return View(buses);
         }
 
@@ -58,28 +42,21 @@ namespace OtobusBiletRezervasyon.Controllers
             if (!ModelState.IsValid)
                 return View(bus);
 
-            try
+            var result = await _adminFlowService.OtobusEkleAsync(bus, GetCurrentUserId(), GetClientIpAddress());
+            if (!result.Success)
             {
-                bus.PlateNumber = bus.PlateNumber?.ToUpper() ?? "";
-                bus.IsActive = true;
-
-                await _adminService.CreateBusAsync(bus);
-                await LogAdminAction("OTOBUS_EKLE", $"Otobus eklendi: {bus.PlateNumber}");
-
-                TempData["Basari"] = "Otobus eklendi.";
-                return RedirectToAction("Otobusler");
-            }
-            catch (InvalidOperationException ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
+                ModelState.AddModelError(string.Empty, result.Message);
                 return View(bus);
             }
+
+            TempData["Basari"] = result.Message;
+            return RedirectToAction("Otobusler");
         }
 
         [HttpGet]
         public async Task<IActionResult> OtobusDuzenle(int id)
         {
-            var bus = await _adminService.GetBusByIdAsync(id);
+            var bus = await _adminFlowService.GetOtobusByIdAsync(id);
             if (bus == null) return NotFound();
             return View(bus);
         }
@@ -88,65 +65,40 @@ namespace OtobusBiletRezervasyon.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> OtobusDuzenle(int id, Bus bus)
         {
-            if (id != bus.Id)
-                return BadRequest();
-
             if (!ModelState.IsValid)
                 return View(bus);
 
-            try
+            var result = await _adminFlowService.OtobusDuzenleAsync(id, bus, GetCurrentUserId(), GetClientIpAddress());
+            if (!result.Success)
             {
-                bus.PlateNumber = bus.PlateNumber?.ToUpper() ?? "";
-                await _adminService.UpdateBusAsync(bus);
-                await LogAdminAction("OTOBUS_DUZENLE", $"Otobus guncellendi: {bus.PlateNumber}");
-
-                TempData["Basari"] = "Otobus guncellendi.";
-                return RedirectToAction("Otobusler");
-            }
-            catch (InvalidOperationException ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
+                ModelState.AddModelError(string.Empty, result.Message);
                 return View(bus);
             }
+
+            TempData["Basari"] = result.Message;
+            return RedirectToAction("Otobusler");
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> OtobusSil(int id)
         {
-            var bus = await _adminService.GetBusByIdAsync(id);
-            if (bus == null) return NotFound();
-
-            var result = await _adminService.ToggleBusStatusAsync(id);
-
-            if (result)
-            {
-                await LogAdminAction("OTOBUS_DURUM", $"Otobus durumu degistirildi: {bus.PlateNumber}");
-                TempData["Basari"] = "Otobus durumu degistirildi.";
-            }
-            else
-            {
-                TempData["Hata"] = "Otobus durumu degistirilemedi.";
-            }
-
+            var result = await _adminFlowService.OtobusDurumDegistirAsync(id, GetCurrentUserId(), GetClientIpAddress());
+            SetResultToast(result);
             return RedirectToAction("Otobusler");
         }
-
-        #endregion
-
-        #region Rota Yonetimi (Route Management)
 
         [HttpGet]
         public async Task<IActionResult> Rotalar()
         {
-            var routes = await _adminService.GetAllRoutesAsync();
+            var routes = await _adminFlowService.GetRotalarAsync();
             return View(routes);
         }
 
         [HttpGet]
         public async Task<IActionResult> RotaEkle()
         {
-            ViewBag.Istasyonlar = await _adminService.GetAllStationsAsync();
+            ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
             return View();
         }
 
@@ -156,41 +108,29 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             if (!ModelState.IsValid)
             {
-                ViewBag.Istasyonlar = await _adminService.GetAllStationsAsync();
+                ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
                 return View(route);
             }
 
-            if (route.OriginStationId == route.DestinationStationId)
+            var result = await _adminFlowService.RotaEkleAsync(route, GetCurrentUserId(), GetClientIpAddress());
+            if (!result.Success)
             {
-                ModelState.AddModelError(string.Empty, "Kalkis ve varis istasyonlari ayni olamaz.");
-                ViewBag.Istasyonlar = await _adminService.GetAllStationsAsync();
+                ModelState.AddModelError(string.Empty, result.Message);
+                ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
                 return View(route);
             }
 
-            try
-            {
-                route.IsActive = true;
-                await _adminService.CreateRouteAsync(route);
-                await LogAdminAction("ROTA_EKLE", $"Rota #{route.Id} eklendi");
-
-                TempData["Basari"] = "Rota eklendi.";
-                return RedirectToAction("Rotalar");
-            }
-            catch (InvalidOperationException ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
-                ViewBag.Istasyonlar = await _adminService.GetAllStationsAsync();
-                return View(route);
-            }
+            TempData["Basari"] = result.Message;
+            return RedirectToAction("Rotalar");
         }
 
         [HttpGet]
         public async Task<IActionResult> RotaDuzenle(int id)
         {
-            var route = await _adminService.GetRouteByIdAsync(id);
+            var route = await _adminFlowService.GetRotaByIdAsync(id);
             if (route == null) return NotFound();
 
-            ViewBag.Istasyonlar = await _adminService.GetAllStationsAsync();
+            ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
             return View(route);
         }
 
@@ -198,58 +138,37 @@ namespace OtobusBiletRezervasyon.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RotaDuzenle(int id, Route route)
         {
-            if (id != route.Id)
-                return BadRequest();
-
             if (!ModelState.IsValid)
             {
-                ViewBag.Istasyonlar = await _adminService.GetAllStationsAsync();
+                ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
                 return View(route);
             }
 
-            try
+            var result = await _adminFlowService.RotaDuzenleAsync(id, route, GetCurrentUserId(), GetClientIpAddress());
+            if (!result.Success)
             {
-                await _adminService.UpdateRouteAsync(route);
-                await LogAdminAction("ROTA_DUZENLE", $"Rota #{id} guncellendi");
-
-                TempData["Basari"] = "Rota guncellendi.";
-                return RedirectToAction("Rotalar");
-            }
-            catch (InvalidOperationException ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
-                ViewBag.Istasyonlar = await _adminService.GetAllStationsAsync();
+                ModelState.AddModelError(string.Empty, result.Message);
+                ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
                 return View(route);
             }
+
+            TempData["Basari"] = result.Message;
+            return RedirectToAction("Rotalar");
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RotaSil(int id)
         {
-            var result = await _adminService.ToggleRouteStatusAsync(id);
-
-            if (result)
-            {
-                await LogAdminAction("ROTA_DURUM", $"Rota #{id} durumu degistirildi");
-                TempData["Basari"] = "Rota durumu degistirildi.";
-            }
-            else
-            {
-                TempData["Hata"] = "Rota bulunamadi.";
-            }
-
+            var result = await _adminFlowService.RotaDurumDegistirAsync(id, GetCurrentUserId(), GetClientIpAddress());
+            SetResultToast(result);
             return RedirectToAction("Rotalar");
         }
-
-        #endregion
-
-        #region Istasyon Yonetimi (Station Management)
 
         [HttpGet]
         public async Task<IActionResult> Istasyonlar()
         {
-            var stations = await _adminService.GetAllStationsAsync();
+            var stations = await _adminFlowService.GetIstasyonlarAsync();
             return View(stations);
         }
 
@@ -263,26 +182,21 @@ namespace OtobusBiletRezervasyon.Controllers
             if (!ModelState.IsValid)
                 return View(station);
 
-            try
+            var result = await _adminFlowService.IstasyonEkleAsync(station, GetCurrentUserId(), GetClientIpAddress());
+            if (!result.Success)
             {
-                station.IsActive = true;
-                await _adminService.CreateStationAsync(station);
-                await LogAdminAction("ISTASYON_EKLE", $"Istasyon eklendi: {station.Name}, {station.City}");
-
-                TempData["Basari"] = "Istasyon eklendi.";
-                return RedirectToAction("Istasyonlar");
-            }
-            catch (InvalidOperationException ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
+                ModelState.AddModelError(string.Empty, result.Message);
                 return View(station);
             }
+
+            TempData["Basari"] = result.Message;
+            return RedirectToAction("Istasyonlar");
         }
 
         [HttpGet]
         public async Task<IActionResult> IstasyonDuzenle(int id)
         {
-            var station = await _adminService.GetStationByIdAsync(id);
+            var station = await _adminFlowService.GetIstasyonByIdAsync(id);
             if (station == null) return NotFound();
             return View(station);
         }
@@ -291,62 +205,42 @@ namespace OtobusBiletRezervasyon.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> IstasyonDuzenle(int id, Station station)
         {
-            if (id != station.Id)
-                return BadRequest();
-
             if (!ModelState.IsValid)
                 return View(station);
 
-            try
+            var result = await _adminFlowService.IstasyonDuzenleAsync(id, station, GetCurrentUserId(), GetClientIpAddress());
+            if (!result.Success)
             {
-                await _adminService.UpdateStationAsync(station);
-                await LogAdminAction("ISTASYON_DUZENLE", $"Istasyon #{id} guncellendi");
-
-                TempData["Basari"] = "Istasyon guncellendi.";
-                return RedirectToAction("Istasyonlar");
-            }
-            catch (InvalidOperationException ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
+                ModelState.AddModelError(string.Empty, result.Message);
                 return View(station);
             }
+
+            TempData["Basari"] = result.Message;
+            return RedirectToAction("Istasyonlar");
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> IstasyonSil(int id)
         {
-            var result = await _adminService.ToggleStationStatusAsync(id);
-
-            if (result)
-            {
-                await LogAdminAction("ISTASYON_DURUM", $"Istasyon #{id} durumu degistirildi");
-                TempData["Basari"] = "Istasyon durumu degistirildi.";
-            }
-            else
-            {
-                TempData["Hata"] = "Istasyon bulunamadi.";
-            }
-
+            var result = await _adminFlowService.IstasyonDurumDegistirAsync(id, GetCurrentUserId(), GetClientIpAddress());
+            SetResultToast(result);
             return RedirectToAction("Istasyonlar");
         }
-
-        #endregion
-
-        #region Sefer Yonetimi (Departure Management)
 
         [HttpGet]
         public async Task<IActionResult> Seferler()
         {
-            var departures = await _adminService.GetAllDeparturesAsync();
+            var departures = await _adminFlowService.GetSeferlerAsync();
             return View(departures);
         }
 
         [HttpGet]
         public async Task<IActionResult> SeferEkle()
         {
-            ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
-            ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
+            var formData = await _adminFlowService.GetSeferFormDataAsync();
+            ViewBag.Rotalar = formData.Rotalar;
+            ViewBag.Otobusler = formData.Otobusler;
             return View();
         }
 
@@ -356,53 +250,35 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             if (!ModelState.IsValid)
             {
-                ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
-                ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
+                var formData = await _adminFlowService.GetSeferFormDataAsync();
+                ViewBag.Rotalar = formData.Rotalar;
+                ViewBag.Otobusler = formData.Otobusler;
                 return View(departure);
             }
 
-            if (departure.DepartureTime <= DateTime.UtcNow)
+            var result = await _adminFlowService.SeferEkleAsync(departure, GetCurrentUserId(), GetClientIpAddress());
+            if (!result.Success)
             {
-                ModelState.AddModelError(string.Empty, "Kalkis tarihi gecmis olamaz.");
-                ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
-                ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
+                ModelState.AddModelError(string.Empty, result.Message);
+                var formData = await _adminFlowService.GetSeferFormDataAsync();
+                ViewBag.Rotalar = formData.Rotalar;
+                ViewBag.Otobusler = formData.Otobusler;
                 return View(departure);
             }
 
-            if (departure.ArrivalTime <= departure.DepartureTime)
-            {
-                ModelState.AddModelError(string.Empty, "Varis tarihi kalkis tarihinden sonra olmalidir.");
-                ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
-                ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
-                return View(departure);
-            }
-
-            try
-            {
-                departure.IsActive = true;
-                var created = await _adminService.CreateDepartureAsync(departure);
-                await LogAdminAction("SEFER_EKLE", $"Sefer #{created.Id} eklendi");
-
-                TempData["Basari"] = "Sefer eklendi.";
-                return RedirectToAction("Seferler");
-            }
-            catch (InvalidOperationException ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
-                ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
-                ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
-                return View(departure);
-            }
+            TempData["Basari"] = result.Message;
+            return RedirectToAction("Seferler");
         }
 
         [HttpGet]
         public async Task<IActionResult> SeferDuzenle(int id)
         {
-            var departure = await _adminService.GetDepartureByIdAsync(id);
+            var departure = await _adminFlowService.GetSeferByIdAsync(id);
             if (departure == null) return NotFound();
 
-            ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
-            ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
+            var formData = await _adminFlowService.GetSeferFormDataAsync();
+            ViewBag.Rotalar = formData.Rotalar;
+            ViewBag.Otobusler = formData.Otobusler;
             return View(departure);
         }
 
@@ -410,106 +286,59 @@ namespace OtobusBiletRezervasyon.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SeferDuzenle(int id, Departure departure)
         {
-            if (id != departure.Id)
-                return BadRequest();
-
             if (!ModelState.IsValid)
             {
-                ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
-                ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
+                var formData = await _adminFlowService.GetSeferFormDataAsync();
+                ViewBag.Rotalar = formData.Rotalar;
+                ViewBag.Otobusler = formData.Otobusler;
                 return View(departure);
             }
 
-            try
+            var result = await _adminFlowService.SeferDuzenleAsync(id, departure, GetCurrentUserId(), GetClientIpAddress());
+            if (!result.Success)
             {
-                await _adminService.UpdateDepartureAsync(departure);
-                await LogAdminAction("SEFER_DUZENLE", $"Sefer #{id} guncellendi");
-
-                TempData["Basari"] = "Sefer guncellendi.";
-                return RedirectToAction("Seferler");
-            }
-            catch (InvalidOperationException ex)
-            {
-                ModelState.AddModelError(string.Empty, ex.Message);
-                ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
-                ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
+                ModelState.AddModelError(string.Empty, result.Message);
+                var formData = await _adminFlowService.GetSeferFormDataAsync();
+                ViewBag.Rotalar = formData.Rotalar;
+                ViewBag.Otobusler = formData.Otobusler;
                 return View(departure);
             }
+
+            TempData["Basari"] = result.Message;
+            return RedirectToAction("Seferler");
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SeferPasife(int id)
         {
-            var result = await _adminService.ToggleDepartureStatusAsync(id);
-
-            if (result)
-            {
-                await LogAdminAction("SEFER_DURUM", $"Sefer #{id} durumu degistirildi");
-                TempData["Basari"] = "Sefer durumu degistirildi.";
-            }
-            else
-            {
-                TempData["Hata"] = "Sefer bulunamadi.";
-            }
-
+            var result = await _adminFlowService.SeferDurumDegistirAsync(id, GetCurrentUserId(), GetClientIpAddress());
+            SetResultToast(result);
             return RedirectToAction("Seferler");
         }
 
-        #endregion
-
-        #region Kullanici Yonetimi (User Management)
-
         [HttpGet]
-        public async Task<IActionResult> Kullanicilar(string? ara)
+        public async Task<IActionResult> Kullanicilar(string? ara, int sayfa = 1)
         {
-            var users = await _adminService.GetAllUsersAsync();
-
-            if (!string.IsNullOrWhiteSpace(ara))
-            {
-                users = users.Where(u =>
-                    u.FirstName.Contains(ara, StringComparison.OrdinalIgnoreCase) ||
-                    u.LastName.Contains(ara, StringComparison.OrdinalIgnoreCase) ||
-                    u.Email.Contains(ara, StringComparison.OrdinalIgnoreCase));
-            }
-
-            ViewBag.Ara = ara;
-            return View(users);
+            var model = await _adminFlowService.GetKullanicilarAsync(ara, sayfa);
+            ViewBag.Ara = model.Ara;
+            ViewBag.ToplamKayit = model.ToplamKayit;
+            ViewBag.MevcutSayfa = model.MevcutSayfa;
+            ViewBag.ToplamSayfa = model.ToplamSayfa;
+            return View(model.Users);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> KullaniciRolDegistir(int kullaniciId, int roleId)
         {
-            int adminId = GetCurrentUserId();
+            var result = await _adminFlowService.KullaniciRolDegistirAsync(
+                GetCurrentUserId(),
+                kullaniciId,
+                roleId,
+                GetClientIpAddress());
 
-            if (kullaniciId == adminId)
-            {
-                TempData["Hata"] = "Kendi rolunuzu degistiremezsiniz.";
-                return RedirectToAction("Kullanicilar");
-            }
-
-            var user = await _adminService.GetUserByIdAsync(kullaniciId);
-            if (user == null)
-            {
-                TempData["Hata"] = "Kullanici bulunamadi.";
-                return RedirectToAction("Kullanicilar");
-            }
-
-            user.RoleId = roleId;
-
-            try
-            {
-                await _adminService.UpdateUserAsync(user);
-                await LogAdminAction("ROL_DEGISTIR", $"Kullanici #{kullaniciId} rolu #{roleId} yapildi");
-
-                TempData["Basari"] = "Rol guncellendi.";
-            }
-            catch (Exception)
-            {
-                TempData["Hata"] = "Rol guncellenirken hata olustu.";
-            }
-
+            SetResultToast(result);
             return RedirectToAction("Kullanicilar");
         }
 
@@ -517,105 +346,40 @@ namespace OtobusBiletRezervasyon.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> KullaniciDurumDegistir(int id)
         {
-            int adminId = GetCurrentUserId();
+            var result = await _adminFlowService.KullaniciDurumDegistirAsync(
+                GetCurrentUserId(),
+                id,
+                GetClientIpAddress());
 
-            if (id == adminId)
-            {
-                TempData["Hata"] = "Kendi hesabinizi pasife alamazsiniz.";
-                return RedirectToAction("Kullanicilar");
-            }
-
-            var result = await _adminService.ToggleUserStatusAsync(id);
-
-            if (result)
-            {
-                await LogAdminAction("KULLANICI_DURUM", $"Kullanici #{id} durumu degistirildi");
-                TempData["Basari"] = "Kullanici durumu degistirildi.";
-            }
-            else
-            {
-                TempData["Hata"] = "Kullanici bulunamadi.";
-            }
-
+            SetResultToast(result);
             return RedirectToAction("Kullanicilar");
         }
-
-        #endregion
-
-        #region Log Yonetimi (Log Management)
 
         [HttpGet]
         public async Task<IActionResult> Loglar(string? islem, int? kullaniciId, int sayfa = 1)
         {
-            int sayfaBoyutu = AppConfig.LogPageSize;
-            IEnumerable<Log> logs;
-
-            if (!string.IsNullOrWhiteSpace(islem))
-            {
-                logs = await _logService.GetLogsByActionAsync(islem);
-            }
-            else if (kullaniciId.HasValue)
-            {
-                logs = await _logService.GetLogsByUserIdAsync(kullaniciId.Value);
-            }
-            else
-            {
-                logs = await _logService.GetLogsAsync();
-            }
-
-            var logList = logs.ToList();
-            int toplamKayit = logList.Count;
-
-            var pagedLogs = logList
-                .OrderByDescending(l => l.CreatedAt)
-                .Skip((sayfa - 1) * sayfaBoyutu)
-                .Take(sayfaBoyutu)
-                .ToList();
-
-            ViewBag.ToplamKayit = toplamKayit;
-            ViewBag.MevcutSayfa = sayfa;
-            ViewBag.ToplamSayfa = (int)Math.Ceiling(toplamKayit / (double)sayfaBoyutu);
-            ViewBag.IslemFiltre = islem;
-            ViewBag.KullaniciFiltre = kullaniciId;
-
-            return View(pagedLogs);
+            var model = await _adminFlowService.GetLoglarAsync(islem, kullaniciId, sayfa);
+            ViewBag.ToplamKayit = model.ToplamKayit;
+            ViewBag.MevcutSayfa = model.MevcutSayfa;
+            ViewBag.ToplamSayfa = model.ToplamSayfa;
+            ViewBag.IslemFiltre = model.IslemFiltre;
+            ViewBag.KullaniciFiltre = model.KullaniciFiltre;
+            return View(model.Logs);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("AdminLogCleanupPolicy")]
         public async Task<IActionResult> LoglarTemizle(int gunSayisi = 30)
         {
-            if (gunSayisi < AppConfig.MinLogRetentionDays)
-            {
-                TempData["Hata"] = $"En az {AppConfig.MinLogRetentionDays} gunluk loglar saklanmalidir.";
-                return RedirectToAction("Loglar");
-            }
-
-            var result = await _logService.DeleteOldLogsAsync(gunSayisi);
-
-            if (result)
-            {
-                await LogAdminAction("LOG_TEMIZLE", $"{gunSayisi} gunden eski loglar silindi");
-                TempData["Basari"] = $"{gunSayisi} gunden eski loglar temizlendi.";
-            }
-            else
-            {
-                TempData["Hata"] = "Log temizleme islemi basarisiz.";
-            }
-
+            var result = await _adminFlowService.LoglarTemizleAsync(gunSayisi, GetCurrentUserId(), GetClientIpAddress());
+            SetResultToast(result);
             return RedirectToAction("Loglar");
         }
 
-        #endregion
-
-        #region Helper Methods
-
-        private async Task LogAdminAction(string action, string description)
+        private void SetResultToast(ServiceResult result)
         {
-            int adminId = GetCurrentUserId();
-            await _logService.LogAdminActionAsync(adminId, action, description, GetClientIpAddress());
+            TempData[result.Success ? "Basari" : "Hata"] = result.Message;
         }
-
-        #endregion
     }
 }

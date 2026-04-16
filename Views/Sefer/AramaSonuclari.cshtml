@@ -1,11 +1,23 @@
 @model IEnumerable<OtobusBiletRezervasyon.DTOs.Search.DepartureResponseDto>
 @using OtobusBiletRezervasyon.DTOs.Search
+@using System.Globalization
 @{
     Layout = "_Layout";
     ViewData["Title"] = "Arama Sonuclari";
     var kriter = ViewBag.AramaKriterleri as SearchQueryDto ?? new SearchQueryDto { TravelDate = DateTime.Today, PassengerCount = 1 };
+    var sonuclar = (Model ?? Enumerable.Empty<DepartureResponseDto>()).ToList();
     var kalkis = ViewBag.KalkisIstasyonu as StationInfoDto;
     var varis = ViewBag.VarisIstasyonu as StationInfoDto;
+    var kalkisLabel = kalkis?.City ?? (sonuclar.Any() ? "All routes" : "-");
+    var varisLabel = varis?.City ?? (sonuclar.Any() ? "All routes" : "-");
+    var rotaOzet = (kalkis != null && varis != null) ? $"{kalkis.City} to {varis.City}" : (sonuclar.Any() ? "All routes" : "- to -");
+    var minPrice = sonuclar.Any() ? Math.Floor(sonuclar.Min(s => s.Price)) : 0m;
+    var maxPrice = sonuclar.Any() ? Math.Ceiling(sonuclar.Max(s => s.Price)) : 0m;
+    var sliderMin = sonuclar.Any() ? (int)Math.Max(0m, minPrice) : 0;
+    var sliderMax = sonuclar.Any() ? (int)Math.Max(sliderMin + 1, maxPrice) : 0;
+    var cokluTarihVar = sonuclar.Select(s => s.DepartureTime.Date).Distinct().Skip(1).Any();
+    var tarihLabel = cokluTarihVar ? "Multiple dates" : kriter.TravelDate.ToString("dd MMM yyyy");
+    var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
 }
 
 <div style="background:var(--primary);padding:1rem 0;">
@@ -16,7 +28,7 @@
                     <i data-lucide="map-pin" style="width:16px;height:16px;opacity:0.7;"></i>
                     <div>
                         <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">From</div>
-                        <div style="font-weight:700;">@(kalkis?.City ?? "-")</div>
+                        <div style="font-weight:700;">@kalkisLabel</div>
                     </div>
                 </div>
             </div>
@@ -28,7 +40,7 @@
                     <i data-lucide="map-pin" style="width:16px;height:16px;opacity:0.7;"></i>
                     <div>
                         <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">To</div>
-                        <div style="font-weight:700;">@(varis?.City ?? "-")</div>
+                        <div style="font-weight:700;">@varisLabel</div>
                     </div>
                 </div>
             </div>
@@ -37,7 +49,7 @@
                     <i data-lucide="calendar" style="width:16px;height:16px;opacity:0.7;"></i>
                     <div>
                         <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">Date</div>
-                        <div style="font-weight:700;">@kriter.TravelDate.ToString("dd MMM yyyy")</div>
+                        <div style="font-weight:700;">@tarihLabel</div>
                     </div>
                 </div>
             </div>
@@ -66,13 +78,19 @@
                 <div class="filter-section mb-3">
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <h5 class="mb-0 h6 fw-700" style="color:var(--text-dark);">Filters</h5>
-                        <button class="btn btn-sm btn-ghost" type="button" style="font-size:0.8rem;color:var(--accent);" onclick="resetFilters()">Reset all</button>
+                        <button class="btn btn-sm btn-ghost" id="resetFiltersBtn" type="button" style="font-size:0.8rem;color:var(--accent);">Reset all</button>
                     </div>
                     <h6>Price Range</h6>
-                    <input type="range" class="form-range" min="10" max="200" value="200" id="priceRange" oninput="updatePriceLabel(this.value)">
+                    <input type="range"
+                           class="form-range"
+                           min="@sliderMin"
+                           max="@sliderMax"
+                           value="@sliderMax"
+                           id="priceRange"
+                    @(sonuclar.Any() ? null : "disabled")>
                     <div class="price-range-display">
-                        <span>$10</span>
-                        <span id="priceLabel">Up to $200</span>
+                        <span>$@sliderMin</span>
+                        <span id="priceLabel">Up to $@sliderMax</span>
                     </div>
                 </div>
             </div>
@@ -80,13 +98,13 @@
             <div class="col-lg-9">
                 <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
                     <div>
-                        <span class="fw-700" style="color:var(--text-dark);">@Model.Count() buses found</span>
-                        <span class="text-muted" style="font-size:0.9rem;"> &middot; @(kalkis?.City ?? "-") to @(varis?.City ?? "-")</span>
+                        <span id="foundCount" class="fw-700" style="color:var(--text-dark);">@sonuclar.Count buses found</span>
+                        <span class="text-muted" style="font-size:0.9rem;"> &middot; @rotaOzet</span>
                     </div>
                 </div>
 
                 <div id="resultsContainer">
-                    @if (!Model.Any())
+                    @if (!sonuclar.Any())
                     {
                         <div class="empty-state card-HamsiBus">
                             <div class="empty-icon">
@@ -98,9 +116,9 @@
                     }
                     else
                     {
-                        @foreach (var sefer in Model)
+                        @foreach (var sefer in sonuclar)
                         {
-                            <div class="result-card mb-3 fade-in">
+                            <div class="result-card mb-3 fade-in" data-price="@sefer.Price.ToString("0.00", CultureInfo.InvariantCulture)">
                                 <div class="row align-items-center g-3">
                                     <div class="col-md-7">
                                         <div class="d-flex align-items-center gap-3">
@@ -118,6 +136,7 @@
                                                     <div>
                                                         <div class="trip-time">@sefer.DepartureTime.ToString("HH:mm")</div>
                                                         <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.OriginStation.City</div>
+                                                        <div style="font-size:0.72rem;color:var(--text-muted);">@sefer.DepartureTime.ToString("dd MMM yyyy")</div>
                                                     </div>
                                                     <div class="trip-line"><div class="line"></div></div>
                                                     <div class="text-center">
@@ -128,6 +147,7 @@
                                                     <div class="text-end">
                                                         <div class="trip-time">@sefer.ArrivalTime.ToString("HH:mm")</div>
                                                         <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.DestinationStation.City</div>
+                                                        <div style="font-size:0.72rem;color:var(--text-muted);">@sefer.ArrivalTime.ToString("dd MMM yyyy")</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -148,6 +168,13 @@
                                 </div>
                             </div>
                         }
+                        <div id="filterNoResultState" class="empty-state card-HamsiBus" style="display:none;">
+                            <div class="empty-icon">
+                                <i data-lucide="sliders-horizontal" style="width:32px;height:32px;"></i>
+                            </div>
+                            <h5>No trips in selected price range</h5>
+                            <p>Increase the price range or reset filters.</p>
+                        </div>
                     }
                 </div>
             </div>
@@ -156,14 +183,66 @@
 </section>
 
 @section Scripts {
-    <script>
-        function updatePriceLabel(val) {
-            document.getElementById("priceLabel").textContent = "Up to $" + val;
-        }
-        function resetFilters() {
-            document.getElementById("priceRange").value = 200;
-            updatePriceLabel(200);
-        }
+    <script nonce="@cspNonce">
+        document.addEventListener("DOMContentLoaded", function () {
+            const priceRange = document.getElementById("priceRange");
+            const resetButton = document.getElementById("resetFiltersBtn");
+            const priceLabel = document.getElementById("priceLabel");
+            const foundCount = document.getElementById("foundCount");
+            const resultCards = Array.from(document.querySelectorAll("#resultsContainer .result-card[data-price]"));
+            const filterNoResultState = document.getElementById("filterNoResultState");
+
+            function updatePriceLabel(value) {
+                if (!priceLabel) return;
+                priceLabel.textContent = "Up to $" + Number(value).toFixed(0);
+            }
+
+            function applyPriceFilter() {
+                if (!priceRange || resultCards.length === 0) return;
+                const selectedMaxPrice = Number(priceRange.value);
+                let visibleCount = 0;
+
+                resultCards.forEach(function (card) {
+                    const cardPrice = Number(card.dataset.price || "0");
+                    const isVisible = cardPrice <= selectedMaxPrice;
+                    card.style.display = isVisible ? "" : "none";
+                    if (isVisible) visibleCount++;
+                });
+
+                if (foundCount) {
+                    foundCount.textContent = visibleCount + " buses found";
+                }
+
+                if (filterNoResultState) {
+                    filterNoResultState.style.display = visibleCount === 0 ? "" : "none";
+                }
+
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+            }
+
+            function resetFilters() {
+                if (!priceRange) return;
+                priceRange.value = priceRange.max;
+                updatePriceLabel(priceRange.value);
+                applyPriceFilter();
+            }
+
+            if (priceRange) {
+                priceRange.addEventListener("input", function () {
+                    updatePriceLabel(priceRange.value);
+                    applyPriceFilter();
+                });
+                priceRange.value = priceRange.max;
+                updatePriceLabel(priceRange.value);
+                applyPriceFilter();
+            }
+
+            if (resetButton) {
+                resetButton.addEventListener("click", resetFilters);
+            }
+        });
     </script>
 }
 

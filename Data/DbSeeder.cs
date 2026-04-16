@@ -9,6 +9,10 @@ namespace OtobusBiletRezervasyon
     /// </summary>
     public static class DbSeeder
     {
+        private const int SeedDepartureDays = 7;
+        private const int SeedTurnaroundMinutes = 75;
+        private const int SeedMinimumRouteMinutes = 60;
+
         public static async Task SeedAsync(AppDbContext db)
         {
             // ── Roller ──────────────────────────────────────────────────────
@@ -112,57 +116,166 @@ namespace OtobusBiletRezervasyon
                 await db.SaveChangesAsync();
             }
 
-            // ── Seferler ────────────────────────────────────────────────────
-            if (!await db.Departures.AnyAsync())
+            // ── Seferler + Koltuklar ────────────────────────────────────────
+            await EnsureDeparturesAndSeatsAsync(db);
+        }
+
+        private static async Task EnsureDeparturesAndSeatsAsync(AppDbContext db)
+        {
+            var routes = await db.Routes
+                .AsNoTracking()
+                .Where(r => r.IsActive)
+                .OrderBy(r => r.Id)
+                .ToListAsync();
+            var buses = await db.Buses
+                .AsNoTracking()
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.Id)
+                .ToListAsync();
+
+            if (!routes.Any() || !buses.Any())
+                return;
+
+            var existingDepartures = await db.Departures
+                .AsNoTracking()
+                .Select(d => new DepartureScheduleEntry(d.BusId, d.DepartureTime, d.ArrivalTime))
+                .ToListAsync();
+
+            var shouldRegenerate = !existingDepartures.Any();
+
+            if (!shouldRegenerate)
             {
-                var routes = await db.Routes.ToListAsync();
-                var buses = await db.Buses.ToListAsync();
-                var departures = new List<Departure>();
-
-                // Yaklasik 1 haftalik seferler olustur
-                for (int dayOffset = 0; dayOffset < 7; dayOffset++)
+                var hasTickets = await db.Tickets.AnyAsync();
+                if (!hasTickets && HasScheduleConflicts(existingDepartures))
                 {
-                    var date = DateTime.Now.Date.AddDays(dayOffset + 1);
+                    shouldRegenerate = true;
+                }
+            }
 
-                    for (int routeIndex = 0; routeIndex < routes.Count; routeIndex++)
-                    {
-                        var route = routes[routeIndex];
-                        var bus = buses[routeIndex % buses.Count];
-                        var departureTime = date.AddHours(8 + (routeIndex * 3) % 14); // Farkli saatler
-                        var durationMinutes = route.DurationMinutes ?? 0;
-                        var distanceKm = route.DistanceKm ?? 0;
-
-                        departures.Add(new Departure
-                        {
-                            RouteId = route.Id,
-                            BusId = bus.Id,
-                            DepartureTime = departureTime,
-                            ArrivalTime = departureTime.AddMinutes(durationMinutes),
-                            Price = 200m + (distanceKm / 10m) * 2m,
-                            IsActive = true
-                        });
-                    }
+            if (shouldRegenerate)
+            {
+                if (await db.Departures.AnyAsync())
+                {
+                    db.Seats.RemoveRange(db.Seats);
+                    db.Departures.RemoveRange(db.Departures);
+                    await db.SaveChangesAsync();
                 }
 
+                var seedStartDate = DateTime.UtcNow.Date.AddDays(1);
+                var departures = GenerateDepartures(routes, buses, seedStartDate, SeedDepartureDays);
                 db.Departures.AddRange(departures);
                 await db.SaveChangesAsync();
+            }
 
-                // Her sefer icin koltuk olustur
-                var allDepartures = await db.Departures.Include(d => d.Bus).ToListAsync();
-                foreach (var dep in allDepartures)
+            await EnsureSeatsCreatedAsync(db);
+        }
+
+        private static List<Departure> GenerateDepartures(
+            IReadOnlyList<Route> routes,
+            IReadOnlyList<Bus> buses,
+            DateTime seedStartDateUtc,
+            int dayCount)
+        {
+            var departures = new List<Departure>();
+            var busNextAvailableUtc = buses.ToDictionary(
+                bus => bus.Id,
+                _ => seedStartDateUtc.AddHours(6));
+
+            for (int dayOffset = 0; dayOffset < dayCount; dayOffset++)
+            {
+                var dayStart = seedStartDateUtc.AddDays(dayOffset);
+
+                for (int routeIndex = 0; routeIndex < routes.Count; routeIndex++)
                 {
-                    for (int seatNum = 1; seatNum <= dep.Bus.Capacity; seatNum++)
-                    {
-                        db.Seats.Add(new Seat
+                    var route = routes[routeIndex];
+                    var preferredDeparture = dayStart.AddHours(7 + ((routeIndex * 2) % 12));
+                    var durationMinutes = Math.Max(route.DurationMinutes ?? 0, SeedMinimumRouteMinutes);
+                    var distanceKm = Math.Max(route.DistanceKm ?? 0, 0);
+
+                    var selectedBus = buses
+                        .Select(bus => new
                         {
-                            DepartureId = dep.Id,
-                            SeatNumber = seatNum.ToString(),
-                            Status = SeatStatus.Available
-                        });
+                            Bus = bus,
+                            EarliestDeparture = busNextAvailableUtc[bus.Id] > preferredDeparture
+                                ? busNextAvailableUtc[bus.Id]
+                                : preferredDeparture
+                        })
+                        .OrderBy(x => x.EarliestDeparture)
+                        .ThenBy(x => x.Bus.Id)
+                        .First();
+
+                    var departureTime = selectedBus.EarliestDeparture;
+                    var arrivalTime = departureTime.AddMinutes(durationMinutes);
+
+                    departures.Add(new Departure
+                    {
+                        RouteId = route.Id,
+                        BusId = selectedBus.Bus.Id,
+                        DepartureTime = departureTime,
+                        ArrivalTime = arrivalTime,
+                        Price = 200m + (distanceKm / 10m) * 2m,
+                        IsActive = true
+                    });
+
+                    busNextAvailableUtc[selectedBus.Bus.Id] = arrivalTime.AddMinutes(SeedTurnaroundMinutes);
+                }
+            }
+
+            return departures;
+        }
+
+        private static bool HasScheduleConflicts(IEnumerable<DepartureScheduleEntry> departures)
+        {
+            foreach (var group in departures.GroupBy(d => d.BusId))
+            {
+                var ordered = group
+                    .OrderBy(d => d.DepartureTime)
+                    .ToList();
+
+                for (int i = 1; i < ordered.Count; i++)
+                {
+                    var previous = ordered[i - 1];
+                    var current = ordered[i];
+                    if (current.DepartureTime < previous.ArrivalTime.AddMinutes(SeedTurnaroundMinutes))
+                    {
+                        return true;
                     }
                 }
-                await db.SaveChangesAsync();
             }
+
+            return false;
         }
+
+        private static async Task EnsureSeatsCreatedAsync(AppDbContext db)
+        {
+            if (await db.Seats.AnyAsync())
+                return;
+
+            var allDepartures = await db.Departures
+                .Include(d => d.Bus)
+                .ToListAsync();
+
+            if (!allDepartures.Any())
+                return;
+
+            var seats = new List<Seat>();
+            foreach (var dep in allDepartures)
+            {
+                for (int seatNum = 1; seatNum <= dep.Bus.Capacity; seatNum++)
+                {
+                    seats.Add(new Seat
+                    {
+                        DepartureId = dep.Id,
+                        SeatNumber = seatNum.ToString(),
+                        Status = SeatStatus.Available
+                    });
+                }
+            }
+
+            db.Seats.AddRange(seats);
+            await db.SaveChangesAsync();
+        }
+
+        private sealed record DepartureScheduleEntry(int BusId, DateTime DepartureTime, DateTime ArrivalTime);
     }
 }

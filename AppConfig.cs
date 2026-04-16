@@ -21,7 +21,7 @@ namespace OtobusBiletRezervasyon
         /// <summary>
         /// Sifre minimum uzunlugu.
         /// </summary>
-        public const int MinPasswordLength = 6;
+        public const int MinPasswordLength = 8;
 
         /// <summary>
         /// Yaklasan seferler listesinde gosterilecek varsayilan sayi.
@@ -42,5 +42,20 @@ namespace OtobusBiletRezervasyon
         /// Log temizlemede saklanacak minimum gun sayisi.
         /// </summary>
         public const int MinLogRetentionDays = 7;
+
+        /// <summary>
+        /// Admin kullanici listesinde sayfa basina gosterilecek kayit sayisi.
+        /// </summary>
+        public const int AdminUserPageSize = 50;
+
+        /// <summary>
+        /// Bilet satisinin kapanacagi, kalkis oncesi minimum sure (dakika).
+        /// </summary>
+        public const int TicketSalesCutoffMinutesBeforeDeparture = 30;
+
+        /// <summary>
+        /// Istasyon arama sorgusu icin maksimum karakter sayisi.
+        /// </summary>
+        public const int MaxStationSearchQueryLength = 50;
     }
 }

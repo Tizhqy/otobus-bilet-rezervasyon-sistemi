@@ -1,11 +1,16 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
-using System.Threading.RateLimiting;
+using MySqlConnector;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.IO.Compression;
 using System.Text;
+using System.Threading.RateLimiting;
 using OtobusBiletRezervasyon;
 using OtobusBiletRezervasyon.Services;
 using OtobusBiletRezervasyon.Services.Interfaces;
@@ -15,12 +20,31 @@ using OtobusBiletRezervasyon.Repositories.Interfaces;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Veritabani ──────────────────────────────────────────────────────────────
-var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+var connStr = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection must be configured.");
+
+var connStrBuilder = new MySqlConnectionStringBuilder(connStr);
+if (string.IsNullOrWhiteSpace(connStrBuilder.Password))
+{
+    var configuredDbPassword = builder.Configuration["Database:Password"]
+        ?? builder.Configuration["MYSQL_PASSWORD"];
+
+    if (!string.IsNullOrWhiteSpace(configuredDbPassword))
+    {
+        connStrBuilder.Password = configuredDbPassword;
+        connStr = connStrBuilder.ConnectionString;
+    }
+}
+
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseMySql(connStr, ServerVersion.AutoDetect(connStr)));
 
 // ── JWT Ayarlari ────────────────────────────────────────────────────────────
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key must be configured in appsettings.json");
+if (jwtKey.Length < 32)
+{
+    throw new InvalidOperationException("Jwt:Key must be at least 32 characters.");
+}
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "OtobusBiletRezervasyon";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "OtobusBiletRezervasyon";
 
@@ -36,8 +60,10 @@ builder.Services.AddAuthentication(options =>
     opt.LogoutPath = "/Auth/Cikis";
     opt.AccessDeniedPath = "/Auth/Giris";
     opt.Cookie.HttpOnly = true;
-    opt.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-    opt.Cookie.SameSite = SameSiteMode.Lax;
+    opt.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    opt.Cookie.SameSite = SameSiteMode.Strict;
     opt.SlidingExpiration = true;
     opt.ExpireTimeSpan = TimeSpan.FromHours(8);
 })
@@ -58,7 +84,11 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", "admin"));
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireAssertion(context =>
+            context.User.Claims.Any(c =>
+                c.Type == ClaimTypes.Role &&
+                c.Value.Equals("admin", StringComparison.OrdinalIgnoreCase))));
 });
 
 // ── Repository Kayitlari ─────────────────────────────────────────────────────
@@ -76,6 +106,10 @@ builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IBiletFlowService, BiletFlowService>();
+builder.Services.AddScoped<IOdemeFlowService, OdemeFlowService>();
+builder.Services.AddScoped<ISeferFlowService, SeferFlowService>();
+builder.Services.AddScoped<IAdminFlowService, AdminFlowService>();
 
 // ── Diger Servisler ──────────────────────────────────────────────────────────
 builder.Services.AddHttpContextAccessor();
@@ -83,13 +117,44 @@ builder.Services.AddControllersWithViews(opt =>
 {
     opt.Filters.Add(new Microsoft.AspNetCore.Mvc.AutoValidateAntiforgeryTokenAttribute());
 });
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
+builder.Services.AddOutputCache(options =>
+{
+    options.AddPolicy("StationSearchCache", policy =>
+    {
+        policy.Expire(TimeSpan.FromMinutes(2));
+        policy.SetVaryByQuery("query");
+        policy.With(context => context.HttpContext.User.Identity?.IsAuthenticated != true);
+    });
+
+    options.AddPolicy("StationListCache", policy =>
+    {
+        policy.Expire(TimeSpan.FromMinutes(10));
+        policy.With(context => context.HttpContext.User.Identity?.IsAuthenticated != true);
+    });
+});
 
 // ── Anti-forgery ─────────────────────────────────────────────────────────────
 builder.Services.AddAntiforgery(opt =>
 {
     opt.HeaderName = "X-CSRF-TOKEN";
     opt.Cookie.HttpOnly = true;
-    opt.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    opt.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
 });
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
@@ -101,6 +166,10 @@ builder.Services.AddRateLimiter(options =>
     var authLoginWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:AuthLogin:WindowSeconds") ?? 60;
     var passwordResetPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PasswordReset:PermitLimit") ?? 3;
     var passwordResetWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:PasswordReset:WindowSeconds") ?? 600;
+    var passwordChangePermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PasswordChange:PermitLimit") ?? 5;
+    var passwordChangeWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:PasswordChange:WindowSeconds") ?? 300;
+    var adminLogCleanupPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:AdminLogCleanup:PermitLimit") ?? 2;
+    var adminLogCleanupWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:AdminLogCleanup:WindowSeconds") ?? 300;
 
     options.AddPolicy("AuthLoginPolicy", context =>
         RateLimitPartition.GetFixedWindowLimiter(
@@ -124,6 +193,30 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    options.AddPolicy("PasswordChangePolicy", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? context.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = passwordChangePermitLimit,
+                Window = TimeSpan.FromSeconds(passwordChangeWindowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("AdminLogCleanupPolicy", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"{context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown"}:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = adminLogCleanupPermitLimit,
+                Window = TimeSpan.FromSeconds(adminLogCleanupWindowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
@@ -141,37 +234,36 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseResponseCompression();
 app.UseStaticFiles();
-var publicAssetsPath = Path.Combine(app.Environment.ContentRootPath, "public");
-if (Directory.Exists(publicAssetsPath))
-{
-    app.UseStaticFiles(new StaticFileOptions
-    {
-        FileProvider = new PhysicalFileProvider(publicAssetsPath),
-        RequestPath = ""
-    });
-}
 app.UseRouting();
 
 // Security Headers
 app.Use(async (ctx, next) =>
 {
-    ctx.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    ctx.Response.Headers.Append("X-Frame-Options", "DENY");
-    ctx.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
-    ctx.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-    ctx.Response.Headers.Append("Content-Security-Policy",
+    var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+    ctx.Items["CspNonce"] = nonce;
+
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    ctx.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net unpkg.com; " +
+        $"script-src 'self' 'nonce-{nonce}' cdn.jsdelivr.net unpkg.com; " +
         "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net; " +
         "font-src 'self' fonts.gstatic.com; " +
-        "img-src 'self' data:;");
+        "img-src 'self' data:; " +
+        "object-src 'none'; " +
+        "base-uri 'self'; " +
+        "frame-ancestors 'none';";
     await next();
 });
 
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseOutputCache();
 
 // ── Routing ────────────────────────────────────────────────────────────────────
 app.MapControllerRoute(

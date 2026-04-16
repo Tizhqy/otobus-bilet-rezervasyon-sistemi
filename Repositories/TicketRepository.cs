@@ -45,6 +45,8 @@ namespace OtobusBiletRezervasyon.Repositories
                 .Include(t => t.Departure)
                     .ThenInclude(d => d.Route)
                         .ThenInclude(r => r.DestinationStation)
+                .Include(t => t.Departure)
+                    .ThenInclude(d => d.Bus)
                 .Include(t => t.Passengers)
                     .ThenInclude(p => p.Seat)
                 .Include(t => t.Payment)
@@ -69,6 +71,14 @@ namespace OtobusBiletRezervasyon.Repositories
                 .Include(t => t.User)
                 .Include(t => t.Departure)
                     .ThenInclude(d => d.Route)
+                        .ThenInclude(r => r.OriginStation)
+                .Include(t => t.Departure)
+                    .ThenInclude(d => d.Route)
+                        .ThenInclude(r => r.DestinationStation)
+                .Include(t => t.Departure)
+                    .ThenInclude(d => d.Bus)
+                .Include(t => t.Passengers)
+                    .ThenInclude(p => p.Seat)
                 .Include(t => t.Payment)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
@@ -132,6 +142,13 @@ namespace OtobusBiletRezervasyon.Repositories
             return payment;
         }
 
+        public async Task<Payment> UpdatePaymentAsync(Payment payment)
+        {
+            _context.Payments.Update(payment);
+            await _context.SaveChangesAsync();
+            return payment;
+        }
+
         public async Task<Payment?> GetPaymentByTicketIdAsync(int ticketId)
         {
             return await _context.Payments
@@ -146,9 +163,40 @@ namespace OtobusBiletRezervasyon.Repositories
                 payment.Status = status;
                 if (status == PaymentStatus.Completed)
                 {
-                    payment.PaidAt = DateTime.Now;
+                    payment.PaidAt = DateTime.UtcNow;
                 }
                 await _context.SaveChangesAsync();
+            }
+        }
+
+        public async Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> operation)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var result = await operation();
+                await transaction.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task ExecuteInTransactionAsync(Func<Task> operation)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                await operation();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
             }
         }
     }

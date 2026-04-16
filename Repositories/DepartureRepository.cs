@@ -50,7 +50,7 @@ namespace OtobusBiletRezervasyon.Repositories
                 .Include(d => d.Route)
                     .ThenInclude(r => r.DestinationStation)
                 .Include(d => d.Bus)
-                .Where(d => d.IsActive && d.DepartureTime > DateTime.Now)
+                .Where(d => d.IsActive && d.DepartureTime > DateTime.UtcNow)
                 .OrderBy(d => d.DepartureTime)
                 .ToListAsync();
         }
@@ -102,7 +102,7 @@ namespace OtobusBiletRezervasyon.Repositories
                     && d.Route.DestinationStationId == destinationStationId
                     && d.DepartureTime >= startOfDay
                     && d.DepartureTime < endOfDay
-                    && d.DepartureTime > DateTime.Now)
+                    && d.DepartureTime > DateTime.UtcNow)
                 .OrderBy(d => d.DepartureTime)
                 .ToListAsync();
         }
@@ -133,7 +133,7 @@ namespace OtobusBiletRezervasyon.Repositories
                 .Include(d => d.Route)
                     .ThenInclude(r => r.DestinationStation)
                 .Include(d => d.Bus)
-                .Where(d => d.IsActive && d.DepartureTime > DateTime.Now)
+                .Where(d => d.IsActive && d.DepartureTime > DateTime.UtcNow)
                 .OrderBy(d => d.DepartureTime)
                 .Take(count)
                 .ToListAsync();

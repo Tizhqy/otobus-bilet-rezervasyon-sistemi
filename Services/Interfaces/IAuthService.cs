@@ -15,8 +15,6 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
         Task<int?> ValidateJwtTokenAsync(string token);
 
         // Remember Me
-        Task<string> GenerateRememberTokenAsync(int userId);
-        Task<AuthResponseDto> LoginWithRememberTokenAsync(string token);
         Task RevokeRememberTokenAsync(int userId);
 
         // Password Reset

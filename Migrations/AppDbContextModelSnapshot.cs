@@ -211,6 +211,9 @@ namespace OtobusBiletRezervasyon.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Token")
+                        .IsUnique();
+
                     b.HasIndex("UserId");
 
                     b.ToTable("password_resets");
@@ -414,6 +417,9 @@ namespace OtobusBiletRezervasyon.Migrations
                         .HasColumnName("name");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Name", "City")
+                        .IsUnique();
 
                     b.ToTable("stations");
                 });

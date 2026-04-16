@@ -95,33 +95,28 @@ namespace OtobusBiletRezervasyon.Services
 
         private static DepartureResponseDto MapToDepartureResponseDto(Departure departure, int availableSeats, int totalSeats)
         {
+            var route = departure.Route;
+            var bus = departure.Bus;
+            var originStation = MapRouteStation(route?.OriginStation, route?.OriginStationId ?? 0, "Kalkis Istasyonu");
+            var destinationStation = MapRouteStation(route?.DestinationStation, route?.DestinationStationId ?? 0, "Varis Istasyonu");
+
             return new DepartureResponseDto
             {
                 Id = departure.Id,
                 Route = new RouteInfoDto
                 {
-                    Id = departure.Route.Id,
-                    OriginStation = new StationInfoDto
-                    {
-                        Id = departure.Route.OriginStation.Id,
-                        Name = departure.Route.OriginStation.Name,
-                        City = departure.Route.OriginStation.City
-                    },
-                    DestinationStation = new StationInfoDto
-                    {
-                        Id = departure.Route.DestinationStation.Id,
-                        Name = departure.Route.DestinationStation.Name,
-                        City = departure.Route.DestinationStation.City
-                    },
-                    DistanceKm = departure.Route.DistanceKm,
-                    DurationMinutes = departure.Route.DurationMinutes
+                    Id = route?.Id ?? departure.RouteId,
+                    OriginStation = originStation,
+                    DestinationStation = destinationStation,
+                    DistanceKm = route?.DistanceKm,
+                    DurationMinutes = route?.DurationMinutes
                 },
                 Bus = new BusInfoDto
                 {
-                    Id = departure.Bus.Id,
-                    PlateNumber = departure.Bus.PlateNumber,
-                    Capacity = departure.Bus.Capacity,
-                    Type = departure.Bus.Type
+                    Id = bus?.Id ?? departure.BusId,
+                    PlateNumber = NormalizeDisplayValue(bus?.PlateNumber, $"Bus #{departure.BusId}"),
+                    Capacity = bus?.Capacity ?? 0,
+                    Type = NormalizeDisplayValue(bus?.Type, "Standard")
                 },
                 DepartureTime = departure.DepartureTime,
                 ArrivalTime = departure.ArrivalTime,
@@ -131,13 +126,32 @@ namespace OtobusBiletRezervasyon.Services
             };
         }
 
+        private static StationInfoDto MapRouteStation(Station? station, int fallbackId, string fallbackName)
+        {
+            var name = NormalizeDisplayValue(station?.Name, fallbackName);
+            var city = NormalizeDisplayValue(station?.City, name);
+
+            return new StationInfoDto
+            {
+                Id = station?.Id ?? fallbackId,
+                Name = name,
+                City = city
+            };
+        }
+
+        private static string NormalizeDisplayValue(string? value, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(value) ? fallback : value;
+        }
+
         private static StationInfoDto MapToStationInfoDto(Station station)
         {
+            var name = NormalizeDisplayValue(station.Name, $"Istasyon #{station.Id}");
             return new StationInfoDto
             {
                 Id = station.Id,
-                Name = station.Name,
-                City = station.City
+                Name = name,
+                City = NormalizeDisplayValue(station.City, name)
             };
         }
 

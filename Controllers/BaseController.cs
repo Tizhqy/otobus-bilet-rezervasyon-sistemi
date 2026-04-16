@@ -26,30 +26,5 @@ namespace OtobusBiletRezervasyon.Controllers
             return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         }
 
-        /// <summary>
-        /// Odeme yontemini normalize eder (CreditCard, DebitCard, Paypal).
-        /// </summary>
-        protected static bool TryNormalizePaymentMethod(string? method, out string normalizedMethod)
-        {
-            normalizedMethod = string.Empty;
-            if (string.IsNullOrWhiteSpace(method))
-                return false;
-
-            var compact = method
-                .Replace("_", string.Empty, StringComparison.Ordinal)
-                .Replace(" ", string.Empty, StringComparison.Ordinal)
-                .Trim()
-                .ToLowerInvariant();
-
-            normalizedMethod = compact switch
-            {
-                "creditcard" => "CreditCard",
-                "debitcard" => "DebitCard",
-                "paypal" => "Paypal",
-                _ => string.Empty
-            };
-
-            return !string.IsNullOrEmpty(normalizedMethod);
-        }
     }
 }

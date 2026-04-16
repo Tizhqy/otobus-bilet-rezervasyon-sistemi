@@ -93,7 +93,7 @@ namespace OtobusBiletRezervasyon.Services
 
         public async Task<bool> DeleteOldLogsAsync(int daysOld)
         {
-            var cutoffDate = DateTime.Now.AddDays(-daysOld);
+            var cutoffDate = DateTime.UtcNow.AddDays(-daysOld);
             return await _logRepository.DeleteOlderThanAsync(cutoffDate);
         }
     }

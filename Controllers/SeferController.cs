@@ -1,17 +1,18 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using OtobusBiletRezervasyon.DTOs.Search;
-using OtobusBiletRezervasyon.DTOs.ViewModels;
+using OtobusBiletRezervasyon.Services.FlowModels;
 using OtobusBiletRezervasyon.Services.Interfaces;
 
 namespace OtobusBiletRezervasyon.Controllers
 {
     public class SeferController : Controller
     {
-        private readonly ISearchService _searchService;
+        private readonly ISeferFlowService _seferFlowService;
 
-        public SeferController(ISearchService searchService)
+        public SeferController(ISeferFlowService seferFlowService)
         {
-            _searchService = searchService;
+            _seferFlowService = seferFlowService;
         }
 
         #region Index (Ana Sayfa)
@@ -19,29 +20,19 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> Index()
         {
-            var stations = await _searchService.GetAllStationsAsync();
-            var upcomingDepartures = await _searchService.GetUpcomingDeparturesAsync(10);
-
-            ViewBag.Istasyonlar = stations;
-            ViewBag.YaklasanSeferler = upcomingDepartures;
-
-            return View(new SearchQueryDto
-            {
-                TravelDate = DateTime.Today.AddDays(1),
-                PassengerCount = 1
-            });
+            var data = await _seferFlowService.GetIndexDataAsync();
+            ViewBag.Istasyonlar = data.Istasyonlar;
+            ViewBag.YaklasanSeferler = data.YaklasanSeferler;
+            return View(data.AramaFormu);
         }
 
         [HttpGet]
         public async Task<IActionResult> AramaSonuclari()
         {
-            ViewBag.Istasyonlar = await _searchService.GetAllStationsAsync();
-            ViewBag.AramaKriterleri = new SearchQueryDto
-            {
-                TravelDate = DateTime.Today,
-                PassengerCount = 1
-            };
-            return View(Enumerable.Empty<DepartureResponseDto>());
+            var data = await _seferFlowService.GetBosAramaSayfasiAsync();
+            ViewBag.Istasyonlar = data.Istasyonlar;
+            ViewBag.AramaKriterleri = data.AramaKriterleri;
+            return View(data.Sonuclar);
         }
 
         #endregion
@@ -51,39 +42,18 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> Ara(SearchQueryDto searchQuery)
         {
-            if (searchQuery.OriginStationId <= 0 || searchQuery.DestinationStationId <= 0)
+            var result = await _seferFlowService.AraAsync(searchQuery);
+            if (!result.Success)
             {
-                TempData["Hata"] = "Lutfen kalkis ve varis istasyonlarini secin.";
+                TempData["Hata"] = result.Message;
                 return RedirectToAction("Index");
             }
 
-            if (searchQuery.OriginStationId == searchQuery.DestinationStationId)
-            {
-                TempData["Hata"] = "Kalkis ve varis istasyonlari ayni olamaz.";
-                return RedirectToAction("Index");
-            }
-
-            if (searchQuery.TravelDate.Date < DateTime.Today)
-            {
-                TempData["Hata"] = "Gecmis tarih secilemez.";
-                return RedirectToAction("Index");
-            }
-
-            if (searchQuery.PassengerCount <= 0)
-                searchQuery.PassengerCount = 1;
-
-            var departures = await _searchService.SearchDeparturesAsync(searchQuery);
-
-            var allStations = await _searchService.GetAllStationsAsync();
-            var originStation = allStations.FirstOrDefault(s => s.Id == searchQuery.OriginStationId);
-            var destinationStation = allStations.FirstOrDefault(s => s.Id == searchQuery.DestinationStationId);
-
-            ViewBag.AramaKriterleri = searchQuery;
-            ViewBag.KalkisIstasyonu = originStation;
-            ViewBag.VarisIstasyonu = destinationStation;
-            ViewBag.Istasyonlar = allStations;
-
-            return View("AramaSonuclari", departures);
+            ViewBag.AramaKriterleri = result.Data!.AramaKriterleri;
+            ViewBag.KalkisIstasyonu = result.Data.KalkisIstasyonu;
+            ViewBag.VarisIstasyonu = result.Data.VarisIstasyonu;
+            ViewBag.Istasyonlar = result.Data.Istasyonlar;
+            return View("AramaSonuclari", result.Data.Sonuclar);
         }
 
         #endregion
@@ -93,28 +63,17 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> Detay(int id)
         {
-            if (id <= 0)
-                return NotFound();
-
-            var departure = await _searchService.GetDepartureByIdAsync(id);
-
-            if (departure == null)
-                return NotFound();
-
-            if (departure.DepartureTime <= DateTime.UtcNow)
+            var result = await _seferFlowService.GetDetayAsync(id);
+            if (!result.Success)
             {
-                TempData["Hata"] = "Bu sefer icin bilet satisi sona ermistir.";
+                if (result.Type == ServiceResultType.NotFound)
+                    return NotFound();
+
+                TempData["Hata"] = result.Message;
                 return RedirectToAction("Index");
             }
 
-            var seats = await _searchService.GetSeatsForDepartureAsync(id);
-            var model = new SeferDetayViewModel
-            {
-                Sefer = departure,
-                Seats = seats.ToList()
-            };
-
-            return View(model);
+            return View(result.Data);
         }
 
         #endregion
@@ -124,21 +83,21 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> KoltukDurumu(int seferId)
         {
-            if (seferId <= 0)
-                return BadRequest("Gecersiz sefer ID.");
+            var result = await _seferFlowService.GetKoltukDurumuAsync(seferId);
+            if (!result.Success)
+                return BadRequest(result.Message);
 
-            var seats = await _searchService.GetSeatsForDepartureAsync(seferId);
-            return PartialView("_KoltukHaritasi", seats);
+            return PartialView("_KoltukHaritasi", result.Data);
         }
 
         [HttpGet]
         public async Task<IActionResult> MusaitKoltuklar(int seferId)
         {
-            if (seferId <= 0)
-                return BadRequest(new { error = "Gecersiz sefer ID." });
+            var result = await _seferFlowService.GetMusaitKoltuklarAsync(seferId);
+            if (!result.Success)
+                return BadRequest(new { error = result.Message });
 
-            var seats = await _searchService.GetAvailableSeatsForDepartureAsync(seferId);
-            return Json(seats);
+            return Json(result.Data);
         }
 
         #endregion
@@ -146,19 +105,22 @@ namespace OtobusBiletRezervasyon.Controllers
         #region IstasyonAra (Station Search - AJAX)
 
         [HttpGet]
+        [OutputCache(PolicyName = "StationSearchCache")]
         public async Task<IActionResult> IstasyonAra(string query)
         {
-            if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
-                return Json(new List<StationInfoDto>());
+            var normalizedQuery = (query ?? string.Empty).Trim();
+            if (normalizedQuery.Length > AppConfig.MaxStationSearchQueryLength)
+                return Json(Array.Empty<StationInfoDto>());
 
-            var stations = await _searchService.SearchStationsAsync(query);
+            var stations = await _seferFlowService.IstasyonAraAsync(normalizedQuery);
             return Json(stations);
         }
 
         [HttpGet]
+        [OutputCache(PolicyName = "StationListCache")]
         public async Task<IActionResult> TumIstasyonlar()
         {
-            var stations = await _searchService.GetAllStationsAsync();
+            var stations = await _seferFlowService.TumIstasyonlarAsync();
             return Json(stations);
         }
 
@@ -169,11 +131,7 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> YaklasanSeferler(int count = 10)
         {
-            if (count <= 0) count = 10;
-            if (count > 50) count = 50;
-
-            var departures = await _searchService.GetUpcomingDeparturesAsync(count);
-
+            var departures = await _seferFlowService.GetYaklasanSeferlerAsync(count);
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 return Json(departures);
 

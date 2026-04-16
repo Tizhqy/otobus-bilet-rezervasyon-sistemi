@@ -88,6 +88,26 @@ namespace OtobusBiletRezervasyon.Repositories
             return true;
         }
 
+        public async Task<bool> AreSeatsAvailableAsync(int departureId, IEnumerable<int> seatIds)
+        {
+            var normalizedSeatIds = seatIds
+                .Where(seatId => seatId > 0)
+                .Distinct()
+                .ToList();
+
+            if (!normalizedSeatIds.Any())
+                return true;
+
+            var availableSeatCount = await _context.Seats
+                .AsNoTracking()
+                .CountAsync(s =>
+                    s.DepartureId == departureId &&
+                    s.Status == SeatStatus.Available &&
+                    normalizedSeatIds.Contains(s.Id));
+
+            return availableSeatCount == normalizedSeatIds.Count;
+        }
+
         public async Task<int> GetAvailableCountAsync(int departureId)
         {
             return await _context.Seats

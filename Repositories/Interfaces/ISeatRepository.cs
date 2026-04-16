@@ -13,6 +13,7 @@ namespace OtobusBiletRezervasyon.Repositories.Interfaces
         Task<bool> UpdateStatusAsync(int id, SeatStatus status);
         Task<bool> BookSeatAsync(int seatId, int departureId);
         Task<bool> ReleaseSeatAsync(int seatId);
+        Task<bool> AreSeatsAvailableAsync(int departureId, IEnumerable<int> seatIds);
         Task<int> GetAvailableCountAsync(int departureId);
         Task<int> GetTotalCountAsync(int departureId);
         Task CreateSeatsForDepartureAsync(int departureId, int capacity);
