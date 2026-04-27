@@ -38,36 +38,65 @@
                         </div>
                     </div>
 
-                    <div class="bus-outline">
-                        <div class="bus-front">
-                            <i data-lucide="circle-dot" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
-                            Driver
+                    <div class="bus-outline @Model.LayoutClass">
+                        <div class="bus-nose">
+                            <div class="bus-windshield"></div>
                         </div>
-                        <div class="d-flex flex-wrap justify-content-center gap-2">
-                            @foreach (var seat in Model.Seats.OrderBy(s => s.SeatNumber))
+                        <div class="bus-front">
+                            <div class="bus-driver-area">
+                                <i data-lucide="circle-dot" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+                                Driver
+                            </div>
+                            <div class="bus-door-indicator">
+                                <i data-lucide="log-in" style="width:12px;height:12px;"></i>
+                            </div>
+                        </div>
+                        <div class="bus-layout-label">@Model.LayoutLabel Layout</div>
+                        <div class="bus-seats-grid">
+                            @foreach (var row in Model.SeatRows)
                             {
-                                var available = seat.Status.Equals("Available", StringComparison.OrdinalIgnoreCase);
-                                if (available)
-                                {
-                                    <button type="button"
-                                            class="seat"
-                                            data-seat-id="@seat.Id"
-                                            data-seat="@seat.SeatNumber">
-                                        @seat.SeatNumber
-                                    </button>
-                                }
-                                else
-                                {
-                                    <button type="button"
-                                            class="seat taken"
-                                            data-seat-id="@seat.Id"
-                                            data-seat="@seat.SeatNumber"
-                                            disabled>
-                                        @seat.SeatNumber
-                                    </button>
-                                }
+                                <div class="seat-row">
+                                    <div class="seat-group seat-group-left">
+                                        @foreach (var seat in row.LeftSeats)
+                                        {
+                                            var available = seat.Status.Equals("Available", StringComparison.OrdinalIgnoreCase);
+                                            <button type="button"
+                                                    class="seat @(available ? "" : "taken")"
+                                                    data-seat-id="@seat.Id"
+                                                    data-seat="@seat.SeatNumber"
+                                                    @(available ? "" : "disabled")>
+                                                @seat.SeatNumber
+                                            </button>
+                                        }
+                                        @for (var pad = row.LeftSeats.Count; pad < Model.LeftSeatsPerRow; pad++)
+                                        {
+                                            <span class="seat-empty" aria-hidden="true"></span>
+                                        }
+                                    </div>
+
+                                    <span class="aisle" aria-hidden="true"></span>
+
+                                    <div class="seat-group seat-group-right">
+                                        @foreach (var seat in row.RightSeats)
+                                        {
+                                            var available = seat.Status.Equals("Available", StringComparison.OrdinalIgnoreCase);
+                                            <button type="button"
+                                                    class="seat @(available ? "" : "taken")"
+                                                    data-seat-id="@seat.Id"
+                                                    data-seat="@seat.SeatNumber"
+                                                    @(available ? "" : "disabled")>
+                                                @seat.SeatNumber
+                                            </button>
+                                        }
+                                        @for (var pad = row.RightSeats.Count; pad < Model.RightSeatsPerRow; pad++)
+                                        {
+                                            <span class="seat-empty" aria-hidden="true"></span>
+                                        }
+                                    </div>
+                                </div>
                             }
                         </div>
+                        <div class="bus-rear"></div>
                     </div>
 
                     <div class="seat-legend justify-content-center">
@@ -186,4 +215,3 @@
         });
     </script>
 }
-

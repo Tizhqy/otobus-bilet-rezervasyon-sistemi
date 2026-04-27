@@ -10,6 +10,9 @@ namespace OtobusBiletRezervasyon.DTOs.ViewModels
         public List<Bus> Buses { get; set; } = new();
         public List<Route> Routes { get; set; } = new();
         public List<User> Users { get; set; } = new();
+        public List<Departure> UpcomingDepartures { get; set; } = new();
+        public List<Route> RouteOptions { get; set; } = new();
+        public List<Bus> BusOptions { get; set; } = new();
     }
 }
 

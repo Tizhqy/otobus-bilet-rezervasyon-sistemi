@@ -39,9 +39,18 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
 
         // Departure Management
         Task<IEnumerable<Departure>> GetAllDeparturesAsync();
+        Task<IEnumerable<Departure>> GetUpcomingDeparturesAsync(int count = 100);
         Task<Departure?> GetDepartureByIdAsync(int id);
         Task<Departure> CreateDepartureAsync(Departure departure);
         Task<Departure> UpdateDepartureAsync(Departure departure);
+        Task<Departure> UpdateDeparturePriceAsync(int departureId, decimal newPrice);
+        Task<int> BulkUpdateDeparturePricesAsync(
+            int? routeId,
+            int? busId,
+            DateTime? startDate,
+            DateTime? endDate,
+            bool useMultiplier,
+            decimal value);
         Task<bool> DeleteDepartureAsync(int id);
         Task<bool> ToggleDepartureStatusAsync(int id);
 

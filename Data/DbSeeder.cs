@@ -83,10 +83,12 @@ namespace OtobusBiletRezervasyon
             {
                 var buses = new[]
                 {
-                    new Bus { PlateNumber = "61 HB 001", Type = "2+1", Capacity = 40, IsActive = true },
-                    new Bus { PlateNumber = "61 HB 002", Type = "2+2", Capacity = 46, IsActive = true },
-                    new Bus { PlateNumber = "61 HB 003", Type = "2+1", Capacity = 40, IsActive = true },
-                    new Bus { PlateNumber = "34 HB 004", Type = "2+2", Capacity = 46, IsActive = true },
+                    new Bus { PlateNumber = "61 HB 001", Type = "2+1", Capacity = 42, IsActive = true },
+                    new Bus { PlateNumber = "61 HB 002", Type = "2+2", Capacity = 48, IsActive = true },
+                    new Bus { PlateNumber = "61 HB 003", Type = "2+1", Capacity = 42, IsActive = true },
+                    new Bus { PlateNumber = "34 HB 004", Type = "2+2", Capacity = 48, IsActive = true },
+                    new Bus { PlateNumber = "06 HB 005", Type = "1+1", Capacity = 24, IsActive = true },
+                    new Bus { PlateNumber = "35 HB 006", Type = "2+1", Capacity = 33, IsActive = true },
                 };
                 db.Buses.AddRange(buses);
                 await db.SaveChangesAsync();
@@ -136,6 +138,8 @@ namespace OtobusBiletRezervasyon
             if (!routes.Any() || !buses.Any())
                 return;
 
+            var now = DateTime.UtcNow;
+
             var existingDepartures = await db.Departures
                 .AsNoTracking()
                 .Select(d => new DepartureScheduleEntry(d.BusId, d.DepartureTime, d.ArrivalTime))
@@ -166,8 +170,35 @@ namespace OtobusBiletRezervasyon
                 db.Departures.AddRange(departures);
                 await db.SaveChangesAsync();
             }
+            else
+            {
+                await EnsureUpcomingDepartureHorizonAsync(db, routes, buses, now);
+            }
 
             await EnsureSeatsCreatedAsync(db);
+        }
+
+        private static async Task EnsureUpcomingDepartureHorizonAsync(
+            AppDbContext db,
+            IReadOnlyList<Route> routes,
+            IReadOnlyList<Bus> buses,
+            DateTime nowUtc)
+        {
+            var latestUpcomingArrival = await db.Departures
+                .AsNoTracking()
+                .Where(d => d.IsActive && d.ArrivalTime > nowUtc)
+                .MaxAsync(d => (DateTime?)d.ArrivalTime);
+
+            var desiredLastDate = nowUtc.Date.AddDays(SeedDepartureDays);
+            var startDate = (latestUpcomingArrival?.Date ?? nowUtc.Date).AddDays(1);
+            var daysToGenerate = (desiredLastDate - startDate).Days + 1;
+
+            if (daysToGenerate <= 0)
+                return;
+
+            var departures = GenerateDepartures(routes, buses, startDate, daysToGenerate);
+            db.Departures.AddRange(departures);
+            await db.SaveChangesAsync();
         }
 
         private static List<Departure> GenerateDepartures(
@@ -248,20 +279,26 @@ namespace OtobusBiletRezervasyon
 
         private static async Task EnsureSeatsCreatedAsync(AppDbContext db)
         {
-            if (await db.Seats.AnyAsync())
-                return;
-
-            var allDepartures = await db.Departures
-                .Include(d => d.Bus)
+            var departuresWithoutSeats = await db.Departures
+                .AsNoTracking()
+                .Where(d => !db.Seats.Any(s => s.DepartureId == d.Id))
+                .Select(d => new { d.Id, d.BusId })
                 .ToListAsync();
 
-            if (!allDepartures.Any())
+            if (!departuresWithoutSeats.Any())
                 return;
 
+            var busCapacities = await db.Buses
+                .AsNoTracking()
+                .ToDictionaryAsync(b => b.Id, b => b.Capacity);
+
             var seats = new List<Seat>();
-            foreach (var dep in allDepartures)
+            foreach (var dep in departuresWithoutSeats)
             {
-                for (int seatNum = 1; seatNum <= dep.Bus.Capacity; seatNum++)
+                if (!busCapacities.TryGetValue(dep.BusId, out var capacity) || capacity <= 0)
+                    continue;
+
+                for (int seatNum = 1; seatNum <= capacity; seatNum++)
                 {
                     seats.Add(new Seat
                     {

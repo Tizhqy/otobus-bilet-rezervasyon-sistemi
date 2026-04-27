@@ -102,11 +102,8 @@ namespace OtobusBiletRezervasyon.Services
             }
 
             var seats = await _searchService.GetSeatsForDepartureAsync(seferId);
-            return ServiceResult<SeferDetayViewModel>.Ok(new SeferDetayViewModel
-            {
-                Sefer = departure,
-                Seats = seats.ToList()
-            });
+            var viewModel = SeferDetayViewModel.Create(departure, seats.ToList());
+            return ServiceResult<SeferDetayViewModel>.Ok(viewModel);
         }
 
         public async Task<ServiceResult<IEnumerable<SeatInfoDto>>> GetKoltukDurumuAsync(int seferId)

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using OtobusBiletRezervasyon.DTOs.Admin;
+using OtobusBiletRezervasyon.DTOs.ViewModels;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Services.FlowModels;
 using OtobusBiletRezervasyon.Services.Interfaces;
@@ -37,16 +39,16 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> OtobusEkle(Bus bus)
+        public async Task<IActionResult> OtobusEkle(AdminBusDto dto)
         {
             if (!ModelState.IsValid)
-                return View(bus);
+                return View(dto);
 
-            var result = await _adminFlowService.OtobusEkleAsync(bus, GetCurrentUserId(), GetClientIpAddress());
+            var result = await _adminFlowService.OtobusEkleAsync(dto, GetCurrentUserId(), GetClientIpAddress());
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
-                return View(bus);
+                return View(dto);
             }
 
             TempData["Basari"] = result.Message;
@@ -63,16 +65,16 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> OtobusDuzenle(int id, Bus bus)
+        public async Task<IActionResult> OtobusDuzenle(int id, AdminBusDto dto)
         {
             if (!ModelState.IsValid)
-                return View(bus);
+                return View(dto);
 
-            var result = await _adminFlowService.OtobusDuzenleAsync(id, bus, GetCurrentUserId(), GetClientIpAddress());
+            var result = await _adminFlowService.OtobusDuzenleAsync(id, dto, GetCurrentUserId(), GetClientIpAddress());
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
-                return View(bus);
+                return View(dto);
             }
 
             TempData["Basari"] = result.Message;
@@ -104,20 +106,20 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RotaEkle(Route route)
+        public async Task<IActionResult> RotaEkle(AdminRouteDto dto)
         {
             if (!ModelState.IsValid)
             {
                 ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
-                return View(route);
+                return View(dto);
             }
 
-            var result = await _adminFlowService.RotaEkleAsync(route, GetCurrentUserId(), GetClientIpAddress());
+            var result = await _adminFlowService.RotaEkleAsync(dto, GetCurrentUserId(), GetClientIpAddress());
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
                 ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
-                return View(route);
+                return View(dto);
             }
 
             TempData["Basari"] = result.Message;
@@ -136,20 +138,20 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RotaDuzenle(int id, Route route)
+        public async Task<IActionResult> RotaDuzenle(int id, AdminRouteDto dto)
         {
             if (!ModelState.IsValid)
             {
                 ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
-                return View(route);
+                return View(dto);
             }
 
-            var result = await _adminFlowService.RotaDuzenleAsync(id, route, GetCurrentUserId(), GetClientIpAddress());
+            var result = await _adminFlowService.RotaDuzenleAsync(id, dto, GetCurrentUserId(), GetClientIpAddress());
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
                 ViewBag.Istasyonlar = await _adminFlowService.GetIstasyonSecenekleriAsync();
-                return View(route);
+                return View(dto);
             }
 
             TempData["Basari"] = result.Message;
@@ -177,16 +179,16 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> IstasyonEkle(Station station)
+        public async Task<IActionResult> IstasyonEkle(AdminStationDto dto)
         {
             if (!ModelState.IsValid)
-                return View(station);
+                return View(dto);
 
-            var result = await _adminFlowService.IstasyonEkleAsync(station, GetCurrentUserId(), GetClientIpAddress());
+            var result = await _adminFlowService.IstasyonEkleAsync(dto, GetCurrentUserId(), GetClientIpAddress());
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
-                return View(station);
+                return View(dto);
             }
 
             TempData["Basari"] = result.Message;
@@ -203,16 +205,16 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> IstasyonDuzenle(int id, Station station)
+        public async Task<IActionResult> IstasyonDuzenle(int id, AdminStationDto dto)
         {
             if (!ModelState.IsValid)
-                return View(station);
+                return View(dto);
 
-            var result = await _adminFlowService.IstasyonDuzenleAsync(id, station, GetCurrentUserId(), GetClientIpAddress());
+            var result = await _adminFlowService.IstasyonDuzenleAsync(id, dto, GetCurrentUserId(), GetClientIpAddress());
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
-                return View(station);
+                return View(dto);
             }
 
             TempData["Basari"] = result.Message;
@@ -246,24 +248,24 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SeferEkle(Departure departure)
+        public async Task<IActionResult> SeferEkle(AdminDepartureDto dto)
         {
             if (!ModelState.IsValid)
             {
                 var formData = await _adminFlowService.GetSeferFormDataAsync();
                 ViewBag.Rotalar = formData.Rotalar;
                 ViewBag.Otobusler = formData.Otobusler;
-                return View(departure);
+                return View(dto);
             }
 
-            var result = await _adminFlowService.SeferEkleAsync(departure, GetCurrentUserId(), GetClientIpAddress());
+            var result = await _adminFlowService.SeferEkleAsync(dto, GetCurrentUserId(), GetClientIpAddress());
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
                 var formData = await _adminFlowService.GetSeferFormDataAsync();
                 ViewBag.Rotalar = formData.Rotalar;
                 ViewBag.Otobusler = formData.Otobusler;
-                return View(departure);
+                return View(dto);
             }
 
             TempData["Basari"] = result.Message;
@@ -284,24 +286,24 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SeferDuzenle(int id, Departure departure)
+        public async Task<IActionResult> SeferDuzenle(int id, AdminDepartureDto dto)
         {
             if (!ModelState.IsValid)
             {
                 var formData = await _adminFlowService.GetSeferFormDataAsync();
                 ViewBag.Rotalar = formData.Rotalar;
                 ViewBag.Otobusler = formData.Otobusler;
-                return View(departure);
+                return View(dto);
             }
 
-            var result = await _adminFlowService.SeferDuzenleAsync(id, departure, GetCurrentUserId(), GetClientIpAddress());
+            var result = await _adminFlowService.SeferDuzenleAsync(id, dto, GetCurrentUserId(), GetClientIpAddress());
             if (!result.Success)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
                 var formData = await _adminFlowService.GetSeferFormDataAsync();
                 ViewBag.Rotalar = formData.Rotalar;
                 ViewBag.Otobusler = formData.Otobusler;
-                return View(departure);
+                return View(dto);
             }
 
             TempData["Basari"] = result.Message;
@@ -315,6 +317,32 @@ namespace OtobusBiletRezervasyon.Controllers
             var result = await _adminFlowService.SeferDurumDegistirAsync(id, GetCurrentUserId(), GetClientIpAddress());
             SetResultToast(result);
             return RedirectToAction("Seferler");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SeferFiyatGuncelle(AdminSingleDeparturePriceUpdateDto request)
+        {
+            var result = await _adminFlowService.SeferFiyatGuncelleAsync(
+                request,
+                GetCurrentUserId(),
+                GetClientIpAddress());
+
+            SetResultToast(result);
+            return RedirectToAction("Dashboard");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SeferFiyatTopluGuncelle(AdminBulkDeparturePriceUpdateDto request)
+        {
+            var result = await _adminFlowService.SeferFiyatTopluGuncelleAsync(
+                request,
+                GetCurrentUserId(),
+                GetClientIpAddress());
+
+            SetResultToast(result);
+            return RedirectToAction("Dashboard");
         }
 
         [HttpGet]

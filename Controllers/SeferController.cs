@@ -6,7 +6,7 @@ using OtobusBiletRezervasyon.Services.Interfaces;
 
 namespace OtobusBiletRezervasyon.Controllers
 {
-    public class SeferController : Controller
+    public class SeferController : BaseController
     {
         private readonly ISeferFlowService _seferFlowService;
 
@@ -131,6 +131,7 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> YaklasanSeferler(int count = 10)
         {
+            count = Math.Clamp(count, 1, AppConfig.MaxUpcomingDepartureCount);
             var departures = await _seferFlowService.GetYaklasanSeferlerAsync(count);
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 return Json(departures);
