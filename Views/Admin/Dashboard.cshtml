@@ -1,7 +1,9 @@
+@using System.Globalization
 @model OtobusBiletRezervasyon.DTOs.ViewModels.AdminDashboardViewModel
 @{
     Layout = "_Layout";
     ViewData["Title"] = "Admin Dashboard";
+    var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
 }
 
 <section class="py-4">
@@ -55,6 +57,154 @@
                     <div>
                         <div class="stat-value">$@Model.Stats.TotalRevenue.ToString("0.00")</div>
                         <div class="stat-label">Total Revenue</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <div class="data-table">
+                    <div class="p-3 pb-0">
+                        <h6 class="fw-700 mb-1">Sefer Fiyat Yonetimi</h6>
+                        <p class="text-muted mb-0">
+                            Tekli fiyat duzenleyebilir veya filtreye gore aktif/yaklasan seferlerde toplu fiyat guncellemesi yapabilirsiniz.
+                        </p>
+                    </div>
+
+                    <div class="p-3 border-bottom">
+                        <form asp-action="SeferFiyatTopluGuncelle" asp-controller="Admin" method="post" class="row g-2 align-items-end">
+                            @Html.AntiForgeryToken()
+                            <div class="col-md-2">
+                                <label class="form-label mb-1">Route</label>
+                                <select class="form-select" name="RouteId">
+                                    <option value="">Tum Rotalar</option>
+                                    @foreach (var route in Model.RouteOptions)
+                                    {
+                                        var origin = !string.IsNullOrWhiteSpace(route.OriginStation?.City)
+                                            ? route.OriginStation!.City
+                                            : !string.IsNullOrWhiteSpace(route.OriginStation?.Name) ? route.OriginStation!.Name : $"Station #{route.OriginStationId}";
+                                        var destination = !string.IsNullOrWhiteSpace(route.DestinationStation?.City)
+                                            ? route.DestinationStation!.City
+                                            : !string.IsNullOrWhiteSpace(route.DestinationStation?.Name) ? route.DestinationStation!.Name : $"Station #{route.DestinationStationId}";
+                                        <option value="@route.Id">@origin &rarr; @destination</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label mb-1">Bus</label>
+                                <select class="form-select" name="BusId">
+                                    <option value="">Tum Otobusler</option>
+                                    @foreach (var bus in Model.BusOptions)
+                                    {
+                                        <option value="@bus.Id">@bus.PlateNumber</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label mb-1">Start Date</label>
+                                <input type="date" class="form-control" name="StartDate" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label mb-1">End Date</label>
+                                <input type="date" class="form-control" name="EndDate" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label mb-1">Mode</label>
+                                <select class="form-select" name="Mode" id="bulkPriceMode">
+                                    <option value="Multiply" selected>Multiply</option>
+                                    <option value="SetFixed">Set Fixed</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label mb-1">Multiplier</label>
+                                <input type="text"
+                                       inputmode="decimal"
+                                       class="form-control"
+                                       id="bulkMultiplier"
+                                       name="Multiplier"
+                                       value="0,90" />
+                                <input type="text"
+                                       inputmode="decimal"
+                                       class="form-control d-none"
+                                       id="bulkFixedPrice"
+                                       name="FixedPrice"
+                                       placeholder="Fixed price"
+                                       disabled />
+                            </div>
+                            <div class="col-12 d-flex justify-content-end">
+                                <button type="submit" class="btn btn-primary-HamsiBus">
+                                    Toplu Fiyat Guncelle
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Departure</th>
+                                    <th>Route</th>
+                                    <th>Bus</th>
+                                    <th>Current Price</th>
+                                    <th>New Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!Model.UpcomingDepartures.Any())
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">
+                                            Fiyat guncellemesi icin yaklasan aktif sefer bulunamadi.
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    foreach (var departure in Model.UpcomingDepartures)
+                                    {
+                                        var origin = !string.IsNullOrWhiteSpace(departure.Route?.OriginStation?.City)
+                                            ? departure.Route.OriginStation.City
+                                            : !string.IsNullOrWhiteSpace(departure.Route?.OriginStation?.Name) ? departure.Route.OriginStation.Name : "-";
+                                        var destination = !string.IsNullOrWhiteSpace(departure.Route?.DestinationStation?.City)
+                                            ? departure.Route.DestinationStation.City
+                                            : !string.IsNullOrWhiteSpace(departure.Route?.DestinationStation?.Name) ? departure.Route.DestinationStation.Name : "-";
+
+                                        <tr>
+                                            <td>
+                                                <div style="font-weight:600;">#@departure.Id</div>
+                                                <div class="text-muted" style="font-size:0.85rem;">
+                                                    @departure.DepartureTime.ToString("dd.MM.yyyy HH:mm")
+                                                </div>
+                                            </td>
+                                            <td>@origin &rarr; @destination</td>
+                                            <td>@(departure.Bus?.PlateNumber ?? $"- ({departure.BusId})")</td>
+                                            <td>$@departure.Price.ToString("0.00")</td>
+                                            <td>
+                                                <form asp-action="SeferFiyatGuncelle"
+                                                      asp-controller="Admin"
+                                                      method="post"
+                                                      class="d-flex align-items-center gap-2">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="DepartureId" value="@departure.Id" />
+                                                    <div class="input-group input-group-sm" style="max-width:170px;">
+                                                        <span class="input-group-text">$</span>
+                                                        <input type="text"
+                                                               inputmode="decimal"
+                                                               class="form-control"
+                                                               name="NewPrice"
+                                                               required
+                                                               value="@departure.Price.ToString("0.00", CultureInfo.CurrentCulture)" />
+                                                    </div>
+                                                    <button type="submit" class="btn btn-sm btn-primary-HamsiBus">Kaydet</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -204,3 +354,27 @@
     </div>
 </section>
 
+@section Scripts {
+    <script nonce="@cspNonce">
+        document.addEventListener("DOMContentLoaded", function () {
+            const modeSelect = document.getElementById("bulkPriceMode");
+            const multiplierInput = document.getElementById("bulkMultiplier");
+            const fixedPriceInput = document.getElementById("bulkFixedPrice");
+
+            if (!modeSelect || !multiplierInput || !fixedPriceInput) {
+                return;
+            }
+
+            const syncPriceMode = function () {
+                const useMultiplier = modeSelect.value === "Multiply";
+                multiplierInput.disabled = !useMultiplier;
+                multiplierInput.classList.toggle("d-none", !useMultiplier);
+                fixedPriceInput.disabled = useMultiplier;
+                fixedPriceInput.classList.toggle("d-none", useMultiplier);
+            };
+
+            modeSelect.addEventListener("change", syncPriceMode);
+            syncPriceMode();
+        });
+    </script>
+}

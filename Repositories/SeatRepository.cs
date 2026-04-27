@@ -22,7 +22,8 @@ namespace OtobusBiletRezervasyon.Repositories
         {
             return await _context.Seats
                 .Where(s => s.DepartureId == departureId)
-                .OrderBy(s => s.SeatNumber)
+                .OrderBy(s => s.SeatNumber.Length)
+                .ThenBy(s => s.SeatNumber)
                 .ToListAsync();
         }
 
@@ -30,7 +31,8 @@ namespace OtobusBiletRezervasyon.Repositories
         {
             return await _context.Seats
                 .Where(s => s.DepartureId == departureId && s.Status == SeatStatus.Available)
-                .OrderBy(s => s.SeatNumber)
+                .OrderBy(s => s.SeatNumber.Length)
+                .ThenBy(s => s.SeatNumber)
                 .ToListAsync();
         }
 

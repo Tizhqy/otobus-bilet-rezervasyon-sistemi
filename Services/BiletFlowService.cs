@@ -58,7 +58,7 @@ namespace OtobusBiletRezervasyon.Services
             if (departure == null)
                 return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
 
-            if (IsTicketSalesClosed(departure.DepartureTime))
+            if (AppConfig.IsTicketSalesClosed(departure.DepartureTime))
             {
                 return ServiceResult<BiletSatinAlViewModel>.Fail(
                     ServiceResultType.Expired,
@@ -135,7 +135,7 @@ namespace OtobusBiletRezervasyon.Services
             if (departure == null)
                 return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
 
-            if (IsTicketSalesClosed(departure.DepartureTime))
+            if (AppConfig.IsTicketSalesClosed(departure.DepartureTime))
             {
                 return ServiceResult<TicketResponseDto>.Fail(
                     ServiceResultType.Expired,
@@ -247,10 +247,7 @@ namespace OtobusBiletRezervasyon.Services
             return _ticketService.AreSeatAvailableAsync(seferId, koltukIds);
         }
 
-        private static bool IsTicketSalesClosed(DateTime departureTimeUtc)
-        {
-            return departureTimeUtc <= DateTime.UtcNow.AddMinutes(AppConfig.TicketSalesCutoffMinutesBeforeDeparture);
-        }
+
 
         private static bool TryNormalizePaymentMethod(string? method, out string normalizedMethod)
         {

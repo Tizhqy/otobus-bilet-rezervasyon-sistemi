@@ -1,3 +1,4 @@
+using System.Data;
 using OtobusBiletRezervasyon.DTOs.Ticket;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Repositories.Interfaces;
@@ -52,7 +53,7 @@ namespace OtobusBiletRezervasyon.Services
                     throw new InvalidOperationException("Departure not found or is not active.");
                 }
 
-                if (IsTicketSalesClosed(departure.DepartureTime))
+                if (AppConfig.IsTicketSalesClosed(departure.DepartureTime))
                 {
                     throw new InvalidOperationException(
                         $"Ticket sales close {AppConfig.TicketSalesCutoffMinutesBeforeDeparture} minutes before departure.");
@@ -118,7 +119,7 @@ namespace OtobusBiletRezervasyon.Services
                 // Return the created ticket with details
                 var createdTicket = await _ticketRepository.GetByIdWithDetailsAsync(ticket.Id);
                 return MapToTicketResponseDto(createdTicket!);
-            });
+            }, IsolationLevel.RepeatableRead);
         }
 
         public async Task<bool> CancelTicketAsync(int ticketId, int userId)
@@ -217,10 +218,7 @@ namespace OtobusBiletRezervasyon.Services
             return await _seatRepository.AreSeatsAvailableAsync(departureId, seatIds);
         }
 
-        private static bool IsTicketSalesClosed(DateTime departureTimeUtc)
-        {
-            return departureTimeUtc <= DateTime.UtcNow.AddMinutes(AppConfig.TicketSalesCutoffMinutesBeforeDeparture);
-        }
+
 
         private static TicketResponseDto MapToTicketResponseDto(Ticket ticket)
         {

@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Repositories.Interfaces;
@@ -192,6 +193,22 @@ namespace OtobusBiletRezervasyon.Repositories
             {
                 await operation();
                 await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> operation, IsolationLevel isolationLevel)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync(isolationLevel);
+            try
+            {
+                var result = await operation();
+                await transaction.CommitAsync();
+                return result;
             }
             catch
             {

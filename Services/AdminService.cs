@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Repositories.Interfaces;
 using OtobusBiletRezervasyon.Services.Interfaces;
@@ -6,17 +7,20 @@ namespace OtobusBiletRezervasyon.Services
 {
     public class AdminService : IAdminService
     {
+        private readonly AppDbContext _context;
         private readonly IUserRepository _userRepository;
         private readonly IDepartureRepository _departureRepository;
         private readonly ISeatRepository _seatRepository;
         private readonly ITicketRepository _ticketRepository;
 
         public AdminService(
+            AppDbContext context,
             IUserRepository userRepository,
             IDepartureRepository departureRepository,
             ISeatRepository seatRepository,
             ITicketRepository ticketRepository)
         {
+            _context = context;
             _userRepository = userRepository;
             _departureRepository = departureRepository;
             _seatRepository = seatRepository;
@@ -179,6 +183,12 @@ namespace OtobusBiletRezervasyon.Services
             return await _departureRepository.GetAllAsync();
         }
 
+        public async Task<IEnumerable<Departure>> GetUpcomingDeparturesAsync(int count = 100)
+        {
+            if (count <= 0) count = 100;
+            return await _departureRepository.GetUpcomingAsync(count);
+        }
+
         public async Task<Departure?> GetDepartureByIdAsync(int id)
         {
             return await _departureRepository.GetByIdWithDetailsAsync(id);
@@ -186,21 +196,109 @@ namespace OtobusBiletRezervasyon.Services
 
         public async Task<Departure> CreateDepartureAsync(Departure departure)
         {
-            var createdDeparture = await _departureRepository.CreateAsync(departure);
-
-            // Create seats for the departure based on bus capacity
-            var bus = await _departureRepository.GetBusByIdAsync(departure.BusId);
-            if (bus != null)
+            return await ExecuteInTransactionAsync(async () =>
             {
-                await _seatRepository.CreateSeatsForDepartureAsync(createdDeparture.Id, bus.Capacity);
-            }
+                await EnsureNoBusScheduleConflictAsync(
+                    departure.BusId,
+                    departure.DepartureTime,
+                    departure.ArrivalTime);
 
-            return createdDeparture;
+                var createdDeparture = await _departureRepository.CreateAsync(departure);
+
+                var bus = await _departureRepository.GetBusByIdAsync(departure.BusId);
+                if (bus != null)
+                {
+                    await _seatRepository.CreateSeatsForDepartureAsync(createdDeparture.Id, bus.Capacity);
+                }
+
+                return createdDeparture;
+            });
         }
 
         public async Task<Departure> UpdateDepartureAsync(Departure departure)
         {
+            await EnsureNoBusScheduleConflictAsync(
+                departure.BusId,
+                departure.DepartureTime,
+                departure.ArrivalTime,
+                departure.Id);
+
             return await _departureRepository.UpdateAsync(departure);
+        }
+
+        public async Task<Departure> UpdateDeparturePriceAsync(int departureId, decimal newPrice)
+        {
+            if (newPrice <= 0m)
+                throw new InvalidOperationException("Fiyat 0'dan buyuk olmalidir.");
+
+            return await ExecuteInTransactionAsync(async () =>
+            {
+                var departure = await _context.Departures
+                    .FirstOrDefaultAsync(d => d.Id == departureId);
+
+                if (departure == null)
+                    throw new InvalidOperationException("Sefer bulunamadi.");
+
+                if (!departure.IsActive || departure.DepartureTime <= DateTime.UtcNow)
+                {
+                    throw new InvalidOperationException(
+                        "Sadece aktif ve yaklasan seferlerin fiyati guncellenebilir.");
+                }
+
+                departure.Price = NormalizePrice(newPrice);
+                await _context.SaveChangesAsync();
+                return departure;
+            });
+        }
+
+        public async Task<int> BulkUpdateDeparturePricesAsync(
+            int? routeId,
+            int? busId,
+            DateTime? startDate,
+            DateTime? endDate,
+            bool useMultiplier,
+            decimal value)
+        {
+            if (value <= 0m)
+                throw new InvalidOperationException("Guncelleme degeri 0'dan buyuk olmalidir.");
+
+            return await ExecuteInTransactionAsync(async () =>
+            {
+                var now = DateTime.UtcNow;
+                var query = _context.Departures
+                    .Where(d => d.IsActive && d.DepartureTime > now);
+
+                if (routeId.HasValue && routeId.Value > 0)
+                    query = query.Where(d => d.RouteId == routeId.Value);
+
+                if (busId.HasValue && busId.Value > 0)
+                    query = query.Where(d => d.BusId == busId.Value);
+
+                if (startDate.HasValue)
+                {
+                    var start = startDate.Value.Date;
+                    query = query.Where(d => d.DepartureTime >= start);
+                }
+
+                if (endDate.HasValue)
+                {
+                    var endExclusive = endDate.Value.Date.AddDays(1);
+                    query = query.Where(d => d.DepartureTime < endExclusive);
+                }
+
+                var departures = await query.ToListAsync();
+                if (!departures.Any())
+                    return 0;
+
+                foreach (var departure in departures)
+                {
+                    var computed = useMultiplier ? departure.Price * value : value;
+                    departure.Price = NormalizePrice(computed);
+                }
+
+                await _context.SaveChangesAsync();
+                return departures.Count;
+            });
         }
 
         public async Task<bool> DeleteDepartureAsync(int id)
@@ -216,6 +314,47 @@ namespace OtobusBiletRezervasyon.Services
             departure.IsActive = !departure.IsActive;
             await _departureRepository.UpdateAsync(departure);
             return true;
+        }
+
+        private async Task EnsureNoBusScheduleConflictAsync(
+            int busId,
+            DateTime departureTime,
+            DateTime arrivalTime,
+            int? excludeDepartureId = null)
+        {
+            var hasConflict = await _context.Departures
+                .AsNoTracking()
+                .Where(d => d.BusId == busId && d.IsActive)
+                .Where(d => !excludeDepartureId.HasValue || d.Id != excludeDepartureId.Value)
+                .AnyAsync(d => departureTime < d.ArrivalTime && arrivalTime > d.DepartureTime);
+
+            if (hasConflict)
+            {
+                throw new InvalidOperationException(
+                    "Bu otobus ayni tarih/saat araliginda baska bir sefere atanmis.");
+            }
+        }
+
+        private static decimal NormalizePrice(decimal rawPrice)
+        {
+            var normalized = Math.Round(rawPrice, 2, MidpointRounding.AwayFromZero);
+            return normalized < 0.01m ? 0.01m : normalized;
+        }
+
+        private async Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> operation)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var result = await operation();
+                await transaction.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         // Dashboard Statistics

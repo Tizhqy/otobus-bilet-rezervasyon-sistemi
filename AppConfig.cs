@@ -57,5 +57,14 @@ namespace OtobusBiletRezervasyon
         /// Istasyon arama sorgusu icin maksimum karakter sayisi.
         /// </summary>
         public const int MaxStationSearchQueryLength = 50;
+
+        /// <summary>
+        /// Bilet satisinin kapanip kapamadigini kontrol eden yardimci metod.
+        /// Hem TicketService hem BiletFlowService tarafindan kullanilir (DRY).
+        /// </summary>
+        public static bool IsTicketSalesClosed(DateTime departureTimeUtc)
+        {
+            return departureTimeUtc <= DateTime.UtcNow.AddMinutes(TicketSalesCutoffMinutesBeforeDeparture);
+        }
     }
 }

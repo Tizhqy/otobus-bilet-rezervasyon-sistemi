@@ -1,3 +1,4 @@
+using System.Data;
 using OtobusBiletRezervasyon.Models;
 
 namespace OtobusBiletRezervasyon.Repositories.Interfaces
@@ -27,5 +28,6 @@ namespace OtobusBiletRezervasyon.Repositories.Interfaces
         // Transaction support
         Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> operation);
         Task ExecuteInTransactionAsync(Func<Task> operation);
+        Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> operation, IsolationLevel isolationLevel);
     }
 }
