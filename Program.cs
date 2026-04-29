@@ -12,12 +12,50 @@ using System.IO.Compression;
 using System.Text;
 using System.Threading.RateLimiting;
 using OtobusBiletRezervasyon;
+using OtobusBiletRezervasyon.Middleware;
 using OtobusBiletRezervasyon.Services;
 using OtobusBiletRezervasyon.Services.Interfaces;
 using OtobusBiletRezervasyon.Repositories;
 using OtobusBiletRezervasyon.Repositories.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
+
+static int? ResolveHttpsPort(IConfiguration configuration)
+{
+    var explicitPort =
+        configuration.GetValue<int?>("ASPNETCORE_HTTPS_PORT") ??
+        configuration.GetValue<int?>("HTTPS_PORT");
+
+    if (explicitPort.HasValue)
+    {
+        return explicitPort.Value;
+    }
+
+    var configuredUrls = configuration["ASPNETCORE_URLS"] ?? configuration["urls"];
+    if (!string.IsNullOrWhiteSpace(configuredUrls))
+    {
+        foreach (var rawUrl in configuredUrls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (Uri.TryCreate(rawUrl, UriKind.Absolute, out var uri) &&
+                uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                return uri.Port;
+            }
+        }
+    }
+
+    var kestrelHttpsUrl = configuration["Kestrel:Endpoints:Https:Url"];
+    if (!string.IsNullOrWhiteSpace(kestrelHttpsUrl) &&
+        Uri.TryCreate(kestrelHttpsUrl, UriKind.Absolute, out var kestrelUri) &&
+        kestrelUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+    {
+        return kestrelUri.Port;
+    }
+
+    return null;
+}
+
+var httpsPort = ResolveHttpsPort(builder.Configuration);
 
 // ── Veritabani ──────────────────────────────────────────────────────────────
 var connStr = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -60,9 +98,7 @@ builder.Services.AddAuthentication(options =>
     opt.LogoutPath = "/Auth/Cikis";
     opt.AccessDeniedPath = "/Auth/Giris";
     opt.Cookie.HttpOnly = true;
-    opt.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
-        ? CookieSecurePolicy.SameAsRequest
-        : CookieSecurePolicy.Always;
+    opt.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
     opt.Cookie.SameSite = SameSiteMode.Strict;
     opt.SlidingExpiration = true;
     opt.ExpireTimeSpan = TimeSpan.FromHours(8);
@@ -97,6 +133,7 @@ builder.Services.AddScoped<ITicketRepository, TicketRepository>();
 builder.Services.AddScoped<ISeatRepository, SeatRepository>();
 builder.Services.AddScoped<IDepartureRepository, DepartureRepository>();
 builder.Services.AddScoped<ILogRepository, LogRepository>();
+builder.Services.AddScoped<ICouponRepository, CouponRepository>();
 
 // ── Service Kayitlari ────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -108,6 +145,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IBiletFlowService, BiletFlowService>();
 builder.Services.AddScoped<IOdemeFlowService, OdemeFlowService>();
+builder.Services.AddScoped<ICouponService, CouponService>();
 builder.Services.AddScoped<ISeferFlowService, SeferFlowService>();
 builder.Services.AddScoped<IAdminFlowService, AdminFlowService>();
 
@@ -131,6 +169,13 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 {
     options.Level = CompressionLevel.Fastest;
 });
+builder.Services.AddHttpsRedirection(options =>
+{
+    if (httpsPort.HasValue)
+    {
+        options.HttpsPort = httpsPort.Value;
+    }
+});
 builder.Services.AddOutputCache(options =>
 {
     options.AddPolicy("StationSearchCache", policy =>
@@ -152,9 +197,7 @@ builder.Services.AddAntiforgery(opt =>
 {
     opt.HeaderName = "X-CSRF-TOKEN";
     opt.Cookie.HttpOnly = true;
-    opt.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
-        ? CookieSecurePolicy.SameAsRequest
-        : CookieSecurePolicy.Always;
+    opt.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
@@ -166,6 +209,8 @@ builder.Services.AddRateLimiter(options =>
     var authLoginWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:AuthLogin:WindowSeconds") ?? 60;
     var passwordResetPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PasswordReset:PermitLimit") ?? 3;
     var passwordResetWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:PasswordReset:WindowSeconds") ?? 600;
+    var passwordResetConfirmPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PasswordResetConfirm:PermitLimit") ?? 8;
+    var passwordResetConfirmWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:PasswordResetConfirm:WindowSeconds") ?? 300;
     var passwordChangePermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PasswordChange:PermitLimit") ?? 5;
     var passwordChangeWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:PasswordChange:WindowSeconds") ?? 300;
     var adminLogCleanupPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:AdminLogCleanup:PermitLimit") ?? 2;
@@ -189,6 +234,17 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = passwordResetPermitLimit,
                 Window = TimeSpan.FromSeconds(passwordResetWindowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("PasswordResetConfirmPolicy", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = passwordResetConfirmPermitLimit,
+                Window = TimeSpan.FromSeconds(passwordResetConfirmWindowSeconds),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0
             }));
@@ -233,7 +289,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment() && httpsPort.HasValue)
+{
+    app.UseHttpsRedirection();
+}
 app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseRouting();
@@ -248,18 +307,28 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers["X-Frame-Options"] = "DENY";
     ctx.Response.Headers["X-XSS-Protection"] = "1; mode=block";
     ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+
+    var imgSrc = app.Environment.IsDevelopment()
+        ? "img-src 'self' data: https: http:; "
+        : "img-src 'self' data: https:; ";
+    var connectSrc = app.Environment.IsDevelopment()
+        ? "connect-src 'self' https: http: ws: wss:; "
+        : "connect-src 'self' https: wss:; ";
+
     ctx.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
         $"script-src 'self' 'nonce-{nonce}' cdn.jsdelivr.net unpkg.com; " +
-        "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net; " +
+        "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net unpkg.com; " +
         "font-src 'self' fonts.gstatic.com; " +
-        "img-src 'self' data:; " +
+        imgSrc +
+        connectSrc +
         "object-src 'none'; " +
         "base-uri 'self'; " +
         "frame-ancestors 'none';";
     await next();
 });
 
+app.UseRequestLogging();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

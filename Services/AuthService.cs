@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -242,7 +243,7 @@ namespace OtobusBiletRezervasyon.Services
 
             await _userRepository.MarkAllPasswordResetsAsUsedAsync(user.Id);
 
-            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+            var token = GeneratePasswordResetToken();
 
             var passwordReset = new PasswordReset
             {
@@ -279,7 +280,8 @@ namespace OtobusBiletRezervasyon.Services
             if (string.IsNullOrWhiteSpace(token))
                 return false;
 
-            var passwordReset = await _userRepository.GetPasswordResetByTokenAsync(token);
+            var normalizedToken = NormalizePasswordResetToken(token);
+            var passwordReset = await _userRepository.GetPasswordResetByTokenAsync(normalizedToken);
             return passwordReset != null;
         }
 
@@ -291,8 +293,9 @@ namespace OtobusBiletRezervasyon.Services
             if (!IsStrongPassword(newPassword))
                 return false;
 
+            var normalizedToken = NormalizePasswordResetToken(token);
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
-            var userId = await _userRepository.ResetPasswordWithTokenAsync(token, passwordHash);
+            var userId = await _userRepository.ResetPasswordWithTokenAsync(normalizedToken, passwordHash);
             if (!userId.HasValue)
                 return false;
 
@@ -363,6 +366,29 @@ namespace OtobusBiletRezervasyon.Services
         private string GetClientIpAddress()
         {
             return _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        }
+
+        private static string GeneratePasswordResetToken()
+        {
+            var tokenBytes = RandomNumberGenerator.GetBytes(32);
+            return WebEncoders.Base64UrlEncode(tokenBytes);
+        }
+
+        private static string NormalizePasswordResetToken(string token)
+        {
+            var normalized = token.Trim();
+
+            if (normalized.Contains('%'))
+            {
+                normalized = Uri.UnescapeDataString(normalized);
+            }
+
+            if (normalized.Contains(' '))
+            {
+                normalized = normalized.Replace(" ", "+", StringComparison.Ordinal);
+            }
+
+            return normalized;
         }
 
         private static bool IsStrongPassword(string? password)

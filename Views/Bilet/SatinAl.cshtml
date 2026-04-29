@@ -5,17 +5,18 @@
     Layout = "_Layout";
     ViewData["Title"] = "Satin Al";
     var sefer = ViewBag.Sefer as DepartureResponseDto;
-    var secilenKoltuk = ViewBag.SecilenKoltuk as SeatInfoDto;
+    var secilenKoltuklar = ViewBag.SecilenKoltuklar as List<SeatInfoDto> ?? new List<SeatInfoDto>();
 
     Model.Passengers ??= new List<PassengerDto>();
-    if (!Model.Passengers.Any())
+    if (!Model.Passengers.Any() && secilenKoltuklar.Any())
+    {
+        foreach(var seat in secilenKoltuklar) {
+            Model.Passengers.Add(new PassengerDto { SeatId = seat.Id });
+        }
+    }
+    else if (!Model.Passengers.Any())
     {
         Model.Passengers.Add(new PassengerDto());
-    }
-    Model.Payment ??= new PaymentInfoDto();
-    if (secilenKoltuk != null && Model.Passengers[0].SeatId <= 0)
-    {
-        Model.Passengers[0].SeatId = secilenKoltuk.Id;
     }
     if (Model.Payment.Amount <= 0 && sefer != null)
     {
@@ -59,46 +60,52 @@
                     @Html.AntiForgeryToken()
 
                     <input asp-for="DepartureId" type="hidden" />
-                    <input asp-for="Passengers[0].SeatId" type="hidden" />
                     <input asp-for="Payment.Method" type="hidden" id="paymentMethodInput" />
                     <input asp-for="Payment.Amount" type="hidden" id="paymentAmountInput" />
                     <input asp-for="Payment.TransactionId" type="hidden" />
 
-                    <div class="card-HamsiBus mb-4">
-                        <div class="card-body p-4 checkout-form">
-                            <div class="d-flex align-items-center gap-2 mb-4">
-                                <div style="width:36px;height:36px;background:var(--primary-bg);border-radius:8px;display:flex;align-items:center;justify-content:center;">
-                                    <i data-lucide="user" style="width:18px;height:18px;color:var(--primary);"></i>
-                                </div>
-                                <div>
-                                    <h5 class="mb-0 h6 fw-700">Passenger Information</h5>
-                                    <p class="text-muted mb-0" style="font-size:0.8rem;">Please enter details as they appear on your ID</p>
-                                </div>
-                            </div>
+                    @for (int i = 0; i < Model.Passengers.Count; i++)
+                    {
+                        var loopSeatId = Model.Passengers[i].SeatId;
+                        var loopSeat = secilenKoltuklar.FirstOrDefault(s => s.Id == loopSeatId);
+                        
+                        <input asp-for="Passengers[i].SeatId" type="hidden" />
 
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label asp-for="Passengers[0].FirstName" class="form-label">First Name</label>
-                                    <input asp-for="Passengers[0].FirstName" class="form-control" placeholder="John" />
-                                    <span asp-validation-for="Passengers[0].FirstName" class="text-danger small"></span>
+                        <div class="card-HamsiBus mb-4">
+                            <div class="card-body p-4 checkout-form">
+                                <div class="d-flex align-items-center gap-2 mb-4">
+                                    <div style="width:36px;height:36px;background:var(--primary-bg);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                                        <i data-lucide="user" style="width:18px;height:18px;color:var(--primary);"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h5 class="mb-0 h6 fw-700">Passenger @(i + 1) Information</h5>
+                                        <p class="text-muted mb-0" style="font-size:0.8rem;">Please enter details as they appear on your ID</p>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-primary">Seat: @(loopSeat?.SeatNumber ?? "-")</span>
+                                    </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label asp-for="Passengers[0].LastName" class="form-label">Last Name</label>
-                                    <input asp-for="Passengers[0].LastName" class="form-control" placeholder="Smith" />
-                                    <span asp-validation-for="Passengers[0].LastName" class="text-danger small"></span>
-                                </div>
-                                <div class="col-md-6">
-                                    <label asp-for="Passengers[0].IdNumber" class="form-label">ID Number</label>
-                                    <input asp-for="Passengers[0].IdNumber" class="form-control" placeholder="ID number" />
-                                    <span asp-validation-for="Passengers[0].IdNumber" class="text-danger small"></span>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Selected Seat</label>
-                                    <input type="text" class="form-control" value="@(secilenKoltuk?.SeatNumber ?? "-")" readonly />
+
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label asp-for="Passengers[i].FirstName" class="form-label">First Name</label>
+                                        <input asp-for="Passengers[i].FirstName" class="form-control" placeholder="John" />
+                                        <span asp-validation-for="Passengers[i].FirstName" class="text-danger small"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="Passengers[i].LastName" class="form-label">Last Name</label>
+                                        <input asp-for="Passengers[i].LastName" class="form-control" placeholder="Smith" />
+                                        <span asp-validation-for="Passengers[i].LastName" class="text-danger small"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="Passengers[i].IdNumber" class="form-label">ID Number</label>
+                                        <input asp-for="Passengers[i].IdNumber" class="form-control" placeholder="ID number" />
+                                        <span asp-validation-for="Passengers[i].IdNumber" class="text-danger small"></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    }
 
                     <div class="card-HamsiBus mb-4">
                         <div class="card-body p-4 checkout-form">
@@ -167,8 +174,8 @@
                             <span>@sefer.DepartureTime.ToString("dd MMM yyyy HH:mm")</span>
                         </div>
                         <div class="summary-row">
-                            <span>Seat</span>
-                            <span>@(secilenKoltuk?.SeatNumber ?? "-")</span>
+                            <span>Seats</span>
+                            <span>@(string.Join(", ", secilenKoltuklar.Select(s => s.SeatNumber)))</span>
                         </div>
                         <div class="summary-row total">
                             <span>Total</span>

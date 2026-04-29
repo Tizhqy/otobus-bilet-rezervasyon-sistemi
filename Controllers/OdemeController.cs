@@ -56,7 +56,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
             int userId = GetCurrentUserId();
             var result = await _odemeFlowService.OdemeyiTamamlaAsync(
-                request.BiletId, userId, request.OdemeYontemi, request.PaymentToken, request.CardLast4);
+                request.BiletId, userId, request.OdemeYontemi, request.PaymentToken, request.IdempotencyKey, request.CardLast4, request.CouponCode);
 
             if (!result.Success)
             {
@@ -107,6 +107,22 @@ namespace OtobusBiletRezervasyon.Controllers
                 return Unauthorized();
 
             return Json(new { expired = state.expired, seconds = state.seconds });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UygulaKupon([FromBody] UygulaKuponIstekDto request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest("Geçersiz istek");
+
+            int userId = GetCurrentUserId();
+            var result = await _odemeFlowService.UygulaKuponAsync(request.BiletId, userId, request.KuponKodu);
+
+            if (!result.Success)
+                return BadRequest(result.Message);
+
+            return Json(new { success = true, newPrice = result.Data });
         }
 
         #endregion

@@ -43,5 +43,10 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
 
         Task<AdminLogPageViewModel> GetLoglarAsync(string? islem, int? kullaniciId, int sayfa);
         Task<ServiceResult> LoglarTemizleAsync(int gunSayisi, int adminId, string ipAddress);
+
+        Task<IEnumerable<Coupon>> GetKuponlarAsync();
+        Task<ServiceResult> KuponEkleAsync(AdminCouponDto dto, int adminUserId, string ipAddress);
+        Task<ServiceResult> KuponDurumDegistirAsync(int id, int adminUserId, string ipAddress);
+        Task<ServiceResult> KuponSilAsync(int id, int adminUserId, string ipAddress);
     }
 }

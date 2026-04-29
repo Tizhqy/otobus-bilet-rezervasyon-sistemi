@@ -13,6 +13,11 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
         string GenerateReferenceNumber();
 
         /// <summary>
+        /// Generates a deterministic reference number for idempotent payment completion.
+        /// </summary>
+        string GenerateReferenceNumber(int ticketId, string idempotencyKey);
+
+        /// <summary>
         /// Checks if the payment timeout has expired.
         /// </summary>
         bool IsPaymentExpired(DateTime createdAt, int timeoutMinutes);

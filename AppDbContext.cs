@@ -22,6 +22,8 @@ namespace OtobusBiletRezervasyon
         public DbSet<Payment> Payments { get; set; }
         public DbSet<Log> Logs { get; set; }
         public DbSet<PasswordReset> PasswordResets { get; set; }
+        public DbSet<Coupon> Coupons { get; set; }
+        public DbSet<CouponUsage> CouponUsages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -179,6 +181,18 @@ namespace OtobusBiletRezervasyon
                     .WithMany(u => u.PasswordResets)
                     .HasForeignKey(pr => pr.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Coupon configuration
+            modelBuilder.Entity<Coupon>(entity =>
+            {
+                entity.HasIndex(c => c.Code).IsUnique();
+            });
+
+            // Coupon Usage configuration
+            modelBuilder.Entity<CouponUsage>(entity =>
+            {
+                entity.HasIndex(cu => new { cu.UserId, cu.CouponId }).IsUnique();
             });
         }
     }

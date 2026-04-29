@@ -45,14 +45,17 @@ namespace OtobusBiletRezervasyon.Services
             return ServiceResult<TicketResponseDto>.Ok(ticket);
         }
 
-        public async Task<ServiceResult<BiletSatinAlViewModel>> HazirlaSatinAlSayfasiAsync(int seferId, int koltukId)
+        public async Task<ServiceResult<BiletSatinAlViewModel>> HazirlaSatinAlSayfasiAsync(int seferId, int[] koltukIds)
         {
-            if (seferId <= 0 || koltukId <= 0)
+            if (seferId <= 0 || koltukIds == null || !koltukIds.Any())
                 return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.ValidationError, "Gecersiz sefer veya koltuk bilgisi.");
 
-            var isAvailable = await _ticketService.IsSeatAvailableAsync(seferId, koltukId);
-            if (!isAvailable)
-                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.Conflict, "Bu koltuk dolu. Lutfen baska bir koltuk secin.");
+            if (koltukIds.Length > AppConfig.MaxPassengerPerTicket)
+                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.ValidationError, $"En fazla {AppConfig.MaxPassengerPerTicket} koltuk secebilirsiniz.");
+
+            var areAvailable = await _ticketService.AreSeatAvailableAsync(seferId, koltukIds);
+            if (!areAvailable)
+                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.Conflict, "Sectiginiz koltuklardan biri veya birkaci dolu. Lutfen baska koltuk secin.");
 
             var departure = await _searchService.GetDepartureByIdAsync(seferId);
             if (departure == null)
@@ -66,28 +69,26 @@ namespace OtobusBiletRezervasyon.Services
             }
 
             var seats = await _searchService.GetSeatsForDepartureAsync(seferId);
-            var selectedSeat = seats.FirstOrDefault(s => s.Id == koltukId);
+            var selectedSeats = seats.Where(s => koltukIds.Contains(s.Id)).ToList();
+            
+            var passengers = selectedSeats.Select(s => new PassengerDto { SeatId = s.Id }).ToList();
+
+            var actualPrice = departure.AvailableSeats <= 10 && departure.AvailableSeats > 0 ? departure.Price * 1.1m : departure.Price;
 
             var model = new BiletSatinAlViewModel
             {
                 Sefer = departure,
-                SecilenKoltuk = selectedSeat,
+                SecilenKoltuklar = selectedSeats,
                 SeferId = seferId,
-                KoltukId = koltukId,
+                KoltukIds = selectedSeats.Select(x => x.Id).ToList(),
                 Form = new CreateTicketDto
                 {
                     DepartureId = seferId,
-                    Passengers = new List<PassengerDto>
-                    {
-                        new()
-                        {
-                            SeatId = koltukId
-                        }
-                    },
+                    Passengers = passengers,
                     Payment = new PaymentInfoDto
                     {
                         Method = "CreditCard",
-                        Amount = departure.Price,
+                        Amount = actualPrice * passengers.Count,
                         TransactionId = Guid.NewGuid().ToString("N")
                     }
                 }
@@ -104,21 +105,21 @@ namespace OtobusBiletRezervasyon.Services
             if (!formDto.Passengers.Any())
                 formDto.Passengers.Add(new PassengerDto());
 
-            var selectedSeatId = formDto.Passengers.FirstOrDefault()?.SeatId ?? 0;
+            var selectedSeatIds = formDto.Passengers.Select(p => p.SeatId).ToArray();
             var departure = await _searchService.GetDepartureByIdAsync(formDto.DepartureId);
 
             if (departure == null)
                 return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
 
             var seats = await _searchService.GetSeatsForDepartureAsync(formDto.DepartureId);
-            var selectedSeat = seats.FirstOrDefault(s => s.Id == selectedSeatId);
+            var selectedSeats = seats.Where(s => selectedSeatIds.Contains(s.Id)).ToList();
 
             return ServiceResult<BiletSatinAlViewModel>.Ok(new BiletSatinAlViewModel
             {
                 Sefer = departure,
-                SecilenKoltuk = selectedSeat,
+                SecilenKoltuklar = selectedSeats,
                 SeferId = formDto.DepartureId,
-                KoltukId = selectedSeatId,
+                KoltukIds = selectedSeats.Select(s => s.Id).ToList(),
                 Form = formDto
             });
         }

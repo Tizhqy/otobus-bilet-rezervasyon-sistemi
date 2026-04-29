@@ -19,10 +19,12 @@
 
                         <form id="paymentForm" asp-controller="Odeme" asp-action="Tamamla" method="post">
                             @Html.AntiForgeryToken()
-                            <input type="hidden" name="BiletId" value="@Model.Id" />
+                            <input type="hidden" name="BiletId" value="@Model.Id" id="biletIdInput" />
                             <input type="hidden" name="OdemeYontemi" id="odemeYontemiInput" value="CreditCard" />
                             <input type="hidden" name="PaymentToken" id="paymentTokenInput" />
+                            <input type="hidden" name="IdempotencyKey" id="idempotencyKeyInput" />
                             <input type="hidden" name="CardLast4" id="cardLast4Input" />
+                            <input type="hidden" name="CouponCode" id="hiddenCouponCodeInput" />
 
                             <div class="mb-3">
                                 <label class="form-label">Odeme Yontemi</label>
@@ -76,7 +78,16 @@
                     </div>
                     <div class="summary-row total">
                         <span>Total</span>
-                        <span>$@Model.TotalPrice.ToString("0.00")</span>
+                        <span id="totalPriceSpan">$@Model.TotalPrice.ToString("0.00")</span>
+                    </div>
+                    <hr />
+                    <div class="mb-3">
+                        <label class="form-label">Discount Coupon</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="couponCodeInput" placeholder="Enter code" />
+                            <button class="btn btn-outline-primary" type="button" id="applyCouponBtn">Apply</button>
+                        </div>
+                        <div id="couponMessage" class="form-text"></div>
                     </div>
                 </div>
             </div>
@@ -93,15 +104,85 @@
             const paymentMethodSelect = document.getElementById("odemeYontemiSelect");
             const paymentMethodInput = document.getElementById("odemeYontemiInput");
             const paymentTokenInput = document.getElementById("paymentTokenInput");
+            const idempotencyKeyInput = document.getElementById("idempotencyKeyInput");
             const cardLast4Input = document.getElementById("cardLast4Input");
             const cardNoInput = document.getElementById("kartNoInput");
             const cardHolderInput = document.getElementById("kartSahibiInput");
             const expiryInput = document.getElementById("sonKullanmaInput");
             const cvvInput = document.getElementById("cvvInput");
 
+            function createIdempotencyKey() {
+                if (window.crypto && typeof window.crypto.randomUUID === "function") {
+                    return window.crypto.randomUUID();
+                }
+
+                if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+                    const bytes = new Uint8Array(16);
+                    window.crypto.getRandomValues(bytes);
+                    return Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+                }
+
+                return Date.now().toString(16) + Math.random().toString(16).slice(2);
+            }
+
+            if (idempotencyKeyInput && !idempotencyKeyInput.value) {
+                idempotencyKeyInput.value = createIdempotencyKey();
+            }
+
             if (paymentMethodSelect && paymentMethodInput) {
                 paymentMethodSelect.addEventListener("change", function () {
                     paymentMethodInput.value = paymentMethodSelect.value;
+                });
+            }
+
+            const applyCouponBtn = document.getElementById("applyCouponBtn");
+            const couponCodeInput = document.getElementById("couponCodeInput");
+            const couponMessage = document.getElementById("couponMessage");
+            const totalPriceSpan = document.getElementById("totalPriceSpan");
+            const hiddenCouponCodeInput = document.getElementById("hiddenCouponCodeInput");
+            
+            if (applyCouponBtn) {
+                applyCouponBtn.addEventListener("click", async function () {
+                    const code = couponCodeInput.value.trim();
+                    if (!code) return;
+
+                    applyCouponBtn.disabled = true;
+                    couponMessage.innerHTML = "<span class='text-muted'>Checking...</span>";
+
+                    try {
+                        const response = await fetch('@Url.Action("UygulaKupon", "Odeme")', {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-CSRF-TOKEN": document.querySelector('input[name="__RequestVerificationToken"]').value
+                            },
+                            body: JSON.stringify({ 
+                                BiletId: document.getElementById("biletIdInput").value, 
+                                KuponKodu: code 
+                            })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success) {
+                                totalPriceSpan.innerHTML = `$${data.newPrice.toFixed(2)}`;
+                                couponMessage.innerHTML = "<span class='text-success'>Coupon applied successfully!</span>";
+                                hiddenCouponCodeInput.value = code;
+                            } else {
+                                couponMessage.innerHTML = `<span class='text-danger'>${data.message || 'Invalid coupon'}</span>`;
+                                hiddenCouponCodeInput.value = "";
+                            }
+                        } else {
+                            const text = await response.text();
+                            couponMessage.innerHTML = `<span class='text-danger'>${text || 'Error applying coupon.'}</span>`;
+                            hiddenCouponCodeInput.value = "";
+                        }
+                    } catch (err) {
+                        couponMessage.innerHTML = "<span class='text-danger'>Connection error.</span>";
+                        hiddenCouponCodeInput.value = "";
+                    } finally {
+                        applyCouponBtn.disabled = false;
+                    }
                 });
             }
 

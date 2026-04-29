@@ -24,6 +24,8 @@ namespace OtobusBiletRezervasyon.Repositories.Interfaces
         Task<Payment> UpdatePaymentAsync(Payment payment);
         Task<Payment?> GetPaymentByTicketIdAsync(int ticketId);
         Task UpdatePaymentStatusAsync(int paymentId, PaymentStatus status);
+        Task<(TicketStatus TicketStatus, PaymentStatus? PaymentStatus, string? TransactionId)?> GetPaymentStateAsync(int ticketId);
+        Task<bool> TryCompletePaymentAndConfirmTicketAsync(int ticketId, PaymentMethod paymentMethod, string referenceNo, DateTime paidAtUtc);
 
         // Transaction support
         Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> operation);

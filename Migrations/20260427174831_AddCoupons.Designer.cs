@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OtobusBiletRezervasyon;
 
@@ -10,9 +11,11 @@ using OtobusBiletRezervasyon;
 namespace OtobusBiletRezervasyon.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260427174831_AddCoupons")]
+    partial class AddCoupons
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -98,35 +101,6 @@ namespace OtobusBiletRezervasyon.Migrations
                         .IsUnique();
 
                     b.ToTable("coupons");
-                });
-
-            modelBuilder.Entity("OtobusBiletRezervasyon.Models.CouponUsage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
-
-                    b.Property<int>("CouponId")
-                        .HasColumnType("int")
-                        .HasColumnName("coupon_id");
-
-                    b.Property<DateTime>("UsedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("used_at");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CouponId");
-
-                    b.HasIndex("UserId", "CouponId")
-                        .IsUnique();
-
-                    b.ToTable("coupon_usages");
                 });
 
             modelBuilder.Entity("OtobusBiletRezervasyon.Models.Departure", b =>
@@ -598,25 +572,6 @@ namespace OtobusBiletRezervasyon.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("users");
-                });
-
-            modelBuilder.Entity("OtobusBiletRezervasyon.Models.CouponUsage", b =>
-                {
-                    b.HasOne("OtobusBiletRezervasyon.Models.Coupon", "Coupon")
-                        .WithMany()
-                        .HasForeignKey("CouponId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("OtobusBiletRezervasyon.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Coupon");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("OtobusBiletRezervasyon.Models.Departure", b =>

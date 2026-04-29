@@ -8,7 +8,7 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
     {
         Task<IEnumerable<TicketResponseDto>> GetUserTicketsAsync(int userId);
         Task<ServiceResult<TicketResponseDto>> GetTicketDetayForUserAsync(int ticketId, int userId, bool isAdmin);
-        Task<ServiceResult<BiletSatinAlViewModel>> HazirlaSatinAlSayfasiAsync(int seferId, int koltukId);
+        Task<ServiceResult<BiletSatinAlViewModel>> HazirlaSatinAlSayfasiAsync(int seferId, int[] koltukIds);
         Task<ServiceResult<BiletSatinAlViewModel>> HazirlaSatinAlSayfasiAsync(CreateTicketDto formDto);
         Task<ServiceResult<TicketResponseDto>> SatinAlAsync(int userId, CreateTicketDto createTicketDto);
         Task<ServiceResult<TicketResponseDto>> SatinAlFormAsync(

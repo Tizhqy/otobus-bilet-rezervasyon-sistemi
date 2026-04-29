@@ -201,7 +201,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [EnableRateLimiting("PasswordResetPolicy")]
+        [EnableRateLimiting("PasswordResetConfirmPolicy")]
         public async Task<IActionResult> SifreSifirla(string token, string yeniSifre, string yeniSifreTekrar)
         {
             if (string.IsNullOrWhiteSpace(token))

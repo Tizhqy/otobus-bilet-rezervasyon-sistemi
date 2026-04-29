@@ -61,13 +61,21 @@ namespace OtobusBiletRezervasyon.Services
 
                 // Validate all seats are available
                 var seatIds = createTicketDto.Passengers.Select(p => p.SeatId).ToList();
+                if (seatIds.Count != seatIds.Distinct().Count())
+                {
+                    throw new InvalidOperationException("Ayni koltuk birden fazla yolcuya secilemez.");
+                }
+
                 if (!await AreSeatAvailableAsync(createTicketDto.DepartureId, seatIds))
                 {
                     throw new InvalidOperationException("One or more selected seats are not available.");
                 }
 
                 // Calculate total price
-                var totalPrice = departure.Price * createTicketDto.Passengers.Count;
+                // Calculate base price dynamically based on remaining seats
+                var availableSeats = await _seatRepository.GetAvailableCountAsync(createTicketDto.DepartureId);
+                var basePrice = availableSeats <= 10 && availableSeats > 0 ? departure.Price * 1.10m : departure.Price;
+                var totalPrice = basePrice * createTicketDto.Passengers.Count;
 
                 // Create ticket
                 var ticket = new Ticket
@@ -107,7 +115,7 @@ namespace OtobusBiletRezervasyon.Services
                 var payment = new Payment
                 {
                     TicketId = ticket.Id,
-                    Amount = createTicketDto.Payment.Amount,
+                    Amount = totalPrice,
                     Method = Enum.Parse<PaymentMethod>(createTicketDto.Payment.Method, true),
                     Status = PaymentStatus.Pending,
                     TransactionId = null,
@@ -188,22 +196,65 @@ namespace OtobusBiletRezervasyon.Services
 
         public async Task<bool> CompletePaymentAsync(int ticketId, PaymentMethod paymentMethod, string referenceNo)
         {
+            if (ticketId <= 0 || string.IsNullOrWhiteSpace(referenceNo))
+                return false;
+
+            var normalizedReference = referenceNo.Trim().ToUpperInvariant();
+
+            return await _ticketRepository.ExecuteInTransactionAsync(async () =>
+            {
+                var paymentState = await _ticketRepository.GetPaymentStateAsync(ticketId);
+                if (paymentState == null || paymentState.Value.PaymentStatus == null)
+                    return false;
+
+                if (paymentState.Value.TicketStatus == TicketStatus.Confirmed &&
+                    paymentState.Value.PaymentStatus == PaymentStatus.Completed)
+                {
+                    return string.Equals(
+                        paymentState.Value.TransactionId,
+                        normalizedReference,
+                        StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (paymentState.Value.TicketStatus != TicketStatus.Pending ||
+                    paymentState.Value.PaymentStatus != PaymentStatus.Pending)
+                {
+                    return false;
+                }
+
+                var completed = await _ticketRepository.TryCompletePaymentAndConfirmTicketAsync(
+                    ticketId,
+                    paymentMethod,
+                    normalizedReference,
+                    DateTime.UtcNow);
+
+                if (completed)
+                    return true;
+
+                var latestState = await _ticketRepository.GetPaymentStateAsync(ticketId);
+                return latestState != null
+                    && latestState.Value.TicketStatus == TicketStatus.Confirmed
+                    && latestState.Value.PaymentStatus == PaymentStatus.Completed
+                    && string.Equals(latestState.Value.TransactionId, normalizedReference, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        public async Task<bool> UpdateTicketAndPaymentPriceAsync(int ticketId, decimal newPrice)
+        {
             return await _ticketRepository.ExecuteInTransactionAsync(async () =>
             {
                 var ticket = await _ticketRepository.GetByIdWithDetailsAsync(ticketId);
-                if (ticket == null || ticket.Payment == null)
-                    return false;
+                if (ticket == null || ticket.Status != TicketStatus.Pending) return false;
 
-                if (ticket.Status != TicketStatus.Pending || ticket.Payment.Status != PaymentStatus.Pending)
-                    return false;
+                ticket.TotalPrice = newPrice;
+                await _ticketRepository.UpdateAsync(ticket);
 
-                ticket.Payment.Method = paymentMethod;
-                ticket.Payment.Status = PaymentStatus.Completed;
-                ticket.Payment.TransactionId = referenceNo;
-                ticket.Payment.PaidAt = DateTime.UtcNow;
+                if (ticket.Payment != null && ticket.Payment.Status == PaymentStatus.Pending)
+                {
+                    ticket.Payment.Amount = newPrice;
+                    await _ticketRepository.UpdatePaymentAsync(ticket.Payment);
+                }
 
-                await _ticketRepository.UpdatePaymentAsync(ticket.Payment);
-                await _ticketRepository.UpdateStatusAsync(ticketId, TicketStatus.Confirmed);
                 return true;
             });
         }

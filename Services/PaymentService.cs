@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using OtobusBiletRezervasyon.Services.Interfaces;
 
 namespace OtobusBiletRezervasyon.Services
@@ -42,6 +44,20 @@ namespace OtobusBiletRezervasyon.Services
         public string GenerateReferenceNumber()
         {
             return Guid.NewGuid().ToString("N")[..12].ToUpper();
+        }
+
+        public string GenerateReferenceNumber(int ticketId, string idempotencyKey)
+        {
+            if (ticketId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(ticketId), "Ticket id must be positive.");
+
+            if (string.IsNullOrWhiteSpace(idempotencyKey))
+                throw new ArgumentException("Idempotency key must be provided.", nameof(idempotencyKey));
+
+            var normalizedKey = idempotencyKey.Trim().ToLowerInvariant();
+            var payload = $"{ticketId}:{normalizedKey}";
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
+            return Convert.ToHexString(hash)[..12];
         }
 
         /// <summary>

@@ -56,9 +56,9 @@ namespace OtobusBiletRezervasyon.Controllers
         #region SatinAl (Purchase)
 
         [HttpGet]
-        public async Task<IActionResult> SatinAl(int seferId, int koltukId)
+        public async Task<IActionResult> SatinAl(int seferId, [FromQuery] int[] koltukIds)
         {
-            var result = await _biletFlowService.HazirlaSatinAlSayfasiAsync(seferId, koltukId);
+            var result = await _biletFlowService.HazirlaSatinAlSayfasiAsync(seferId, koltukIds);
 
             if (!result.Success)
             {
@@ -99,8 +99,8 @@ namespace OtobusBiletRezervasyon.Controllers
                     return RedirectToAction("Index", "Sefer");
                 if (result.Type == ServiceResultType.ValidationError)
                 {
-                    var selectedSeatId = createTicketDto.Passengers?.FirstOrDefault()?.SeatId ?? 0;
-                    return RedirectToAction("SatinAl", new { seferId = createTicketDto.DepartureId, koltukId = selectedSeatId });
+                    var selectedSeatIds = createTicketDto.Passengers?.Select(p => p.SeatId).ToArray() ?? Array.Empty<int>();
+                    return RedirectToAction("SatinAl", new { seferId = createTicketDto.DepartureId, koltukIds = selectedSeatIds });
                 }
 
                 return RedirectToAction("Detay", "Sefer", new { id = createTicketDto.DepartureId });
@@ -192,9 +192,9 @@ namespace OtobusBiletRezervasyon.Controllers
         private void SetSatinAlViewBag(BiletSatinAlViewModel model)
         {
             ViewBag.Sefer = model.Sefer;
-            ViewBag.SecilenKoltuk = model.SecilenKoltuk;
+            ViewBag.SecilenKoltuklar = model.SecilenKoltuklar;
             ViewBag.SeferId = model.SeferId;
-            ViewBag.KoltukId = model.KoltukId;
+            ViewBag.KoltukIds = model.KoltukIds;
         }
     }
 }

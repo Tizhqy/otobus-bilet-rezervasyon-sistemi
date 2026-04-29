@@ -69,18 +69,21 @@
                 </ul>
 
                 <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-ghost" id="darkModeToggle" aria-label="Toggle dark mode" style="padding: 0.5rem; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
+                        <i data-lucide="moon" style="width:20px;height:20px;" id="darkModeIcon"></i>
+                    </button>
                     @if (User.Identity?.IsAuthenticated == true)
                     {
                         <span style="font-weight:600;font-size:0.9rem;color:var(--text-dark);">@User.Identity?.Name</span>
                         <form asp-controller="Auth" asp-action="Cikis" method="post" class="d-inline">
                             @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-ghost">Cikis</button>
+                            <button type="submit" class="btn btn-ghost">Logout</button>
                         </form>
                     }
                     else
                     {
-                        <a asp-controller="Auth" asp-action="Giris" class="btn btn-ghost">Giris</a>
-                        <a asp-controller="Auth" asp-action="Kayit" class="btn btn-primary-HamsiBus">Kayit Ol</a>
+                        <a asp-controller="Auth" asp-action="Giris" class="btn btn-ghost">Login</a>
+                        <a asp-controller="Auth" asp-action="Kayit" class="btn btn-primary-HamsiBus">Sign Up</a>
                     }
                 </div>
             </div>
@@ -103,23 +106,23 @@
                 </div>
                 <div class="col-6 col-lg-2">
                     <h6>Company</h6>
-                    <a href="#">About Us</a>
-                    <a href="#">Careers</a>
-                    <a href="#">Press</a>
-                    <a href="#">Blog</a>
+                    <a asp-controller="Pages" asp-action="About">About Us</a>
+                    <a asp-controller="Pages" asp-action="Careers">Careers</a>
+                    <a asp-controller="Pages" asp-action="Press">Press Room</a>
+                    <a asp-controller="Pages" asp-action="Blog">Blog</a>
                 </div>
                 <div class="col-6 col-lg-2">
                     <h6>Support</h6>
-                    <a href="#">Help Center</a>
-                    <a href="#">Contact Us</a>
-                    <a href="#">Refund Policy</a>
-                    <a href="#">FAQs</a>
+                    <a asp-controller="Pages" asp-action="HelpCenter">Help Center</a>
+                    <a asp-controller="Pages" asp-action="Contact">Contact Us</a>
+                    <a asp-controller="Pages" asp-action="RefundPolicy">Refund Policy</a>
+                    <a asp-controller="Pages" asp-action="Faq">FAQs</a>
                 </div>
                 <div class="col-6 col-lg-2">
                     <h6>Legal</h6>
-                    <a href="#">Privacy Policy</a>
-                    <a href="#">Terms of Use</a>
-                    <a href="#">Cookie Policy</a>
+                    <a asp-controller="Pages" asp-action="Privacy">Privacy Policy</a>
+                    <a asp-controller="Pages" asp-action="Terms">Terms of Use</a>
+                    <a asp-controller="Pages" asp-action="CookiePolicy">Cookie Policy</a>
                 </div>
                 <div class="col-6 col-lg-2">
                     <h6>Connect</h6>
@@ -132,9 +135,9 @@
             <div class="footer-bottom d-flex flex-wrap justify-content-between align-items-center">
                 <p class="mb-0" style="font-size:0.85rem;">&copy; @DateTime.Now.Year HamsiBus. All rights reserved.</p>
                 <div class="d-flex gap-3" style="font-size:0.85rem;">
-                    <a href="#">Privacy</a>
-                    <a href="#">Terms</a>
-                    <a href="#">Cookies</a>
+                    <a asp-controller="Pages" asp-action="Privacy">Privacy</a>
+                    <a asp-controller="Pages" asp-action="Terms">Terms</a>
+                    <a asp-controller="Pages" asp-action="CookiePolicy">Cookies</a>
                 </div>
             </div>
         </div>
@@ -149,23 +152,50 @@
             document.addEventListener("DOMContentLoaded", function () {
                 @if (!string.IsNullOrWhiteSpace(basariMesaji))
                 {
-                    <text>showToast(@Html.Raw(JsonSerializer.Serialize(basariMesaji)), "success");</text>
+                    @:showToast(@Html.Raw(JsonSerializer.Serialize(basariMesaji)), "success");
                 }
                 @if (!string.IsNullOrWhiteSpace(hataMesaji))
                 {
-                    <text>showToast(@Html.Raw(JsonSerializer.Serialize(hataMesaji)), "danger");</text>
+                    @:showToast(@Html.Raw(JsonSerializer.Serialize(hataMesaji)), "danger");
                 }
                 @if (!string.IsNullOrWhiteSpace(bilgiMesaji))
                 {
-                    <text>showToast(@Html.Raw(JsonSerializer.Serialize(bilgiMesaji)), "info");</text>
+                    @:showToast(@Html.Raw(JsonSerializer.Serialize(bilgiMesaji)), "info");
                 }
                 @foreach (var modelHata in modelHataMesajlari)
                 {
-                    <text>showToast(@Html.Raw(JsonSerializer.Serialize(modelHata)), "danger");</text>
+                    @:showToast(@Html.Raw(JsonSerializer.Serialize(modelHata)), "danger");
                 }
             });
         </script>
     }
+
+    <script nonce="@cspNonce">
+        document.addEventListener("DOMContentLoaded", function () {
+            lucide.createIcons();
+            
+            const darkModeToggle = document.getElementById("darkModeToggle");
+            
+            if (localStorage.getItem("theme") === "dark") {
+                document.body.classList.add("dark-mode");
+                if (darkModeToggle) {
+                    darkModeToggle.innerHTML = '<i data-lucide="sun" style="width:20px;height:20px;"></i>';
+                    lucide.createIcons();
+                }
+            }
+
+            if (darkModeToggle) {
+                darkModeToggle.addEventListener("click", function() {
+                    document.body.classList.toggle("dark-mode");
+                    const isDark = document.body.classList.contains("dark-mode");
+                    localStorage.setItem("theme", isDark ? "dark" : "light");
+                    darkModeToggle.innerHTML = `<i data-lucide="${isDark ? 'sun' : 'moon'}" style="width:20px;height:20px;"></i>`;
+                    lucide.createIcons();
+                });
+            }
+        });
+    </script>
+    
     @RenderSection("Scripts", required: false)
 </body>
 </html>

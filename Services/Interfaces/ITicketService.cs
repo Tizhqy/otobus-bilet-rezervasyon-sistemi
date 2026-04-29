@@ -19,6 +19,7 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
         // Confirmation (after payment)
         Task<bool> ConfirmTicketAsync(int ticketId);
         Task<bool> CompletePaymentAsync(int ticketId, PaymentMethod paymentMethod, string referenceNo);
+        Task<bool> UpdateTicketAndPaymentPriceAsync(int ticketId, decimal newPrice);
 
         // Seat Availability
         Task<bool> IsSeatAvailableAsync(int departureId, int seatId);

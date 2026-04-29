@@ -100,6 +100,9 @@ namespace OtobusBiletRezervasyon.Services
             var originStation = MapRouteStation(route?.OriginStation, route?.OriginStationId ?? 0, "Kalkis Istasyonu");
             var destinationStation = MapRouteStation(route?.DestinationStation, route?.DestinationStationId ?? 0, "Varis Istasyonu");
 
+            bool applyDynamicPricing = availableSeats <= 10 && availableSeats > 0;
+            decimal finalPrice = applyDynamicPricing ? departure.Price * 1.10m : departure.Price;
+
             return new DepartureResponseDto
             {
                 Id = departure.Id,
@@ -120,9 +123,10 @@ namespace OtobusBiletRezervasyon.Services
                 },
                 DepartureTime = departure.DepartureTime,
                 ArrivalTime = departure.ArrivalTime,
-                Price = departure.Price,
+                Price = finalPrice,
                 AvailableSeats = availableSeats,
-                TotalSeats = totalSeats
+                TotalSeats = totalSeats,
+                IsDynamicPricingApplied = applyDynamicPricing
             };
         }
 

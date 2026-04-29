@@ -1,189 +1,142 @@
 # Otobus Bilet Rezervasyon Sistemi
 
-ASP.NET Core ve MySQL kullanilarak gelistirilen kapsamli bir otobus bilet rezervasyon sistemi.
+ASP.NET Core 8, EF Core ve MySQL ile gelistirilen MVC tabanli otobus bilet rezervasyon uygulamasi.
 
-## Proje Durumu
+## Guncel Durum
 
 | Katman | Durum |
 |--------|-------|
 | Models | ✅ Tamamlandi |
-| DTOs | ✅ Tamamlandi |
+| DTOs / ViewModels | ✅ Tamamlandi |
 | Repositories | ✅ Tamamlandi |
-| Services | ✅ Tamamlandi |
-| Controllers | ❌ Yapilmadi |
-| Views | ❌ Yapilmadi |
-| Database | ✅ Sema hazir |
+| Services + Flow Services | ✅ Tamamlandi |
+| Controllers | ✅ Tamamlandi |
+| Razor Views | ✅ Tamamlandi |
+| Middleware | ✅ Tamamlandi |
+| Database + Migrations + Seeder | ✅ Tamamlandi |
 
-## Mimari Yapi
+## Mimari (SoC)
 
+Proje sorumluluklari net ayrilmistir:
+
+- **Controllers**: HTTP giris/cikis, yonlendirme, TempData mesajlari.
+- **Flow Services** (`BiletFlowService`, `OdemeFlowService`, `SeferFlowService`, `AdminFlowService`): use-case orkestrasyonu.
+- **Core Services** (`AuthService`, `TicketService`, `SearchService`, `PaymentService`, ...): is kurallari.
+- **Repositories**: yalnizca veri erisimi.
+- **Middleware**: cross-cutting konular (guvenlik header, request logging).
+
+## Mevcut Moduller
+
+- **Auth**: kayit, giris/cikis, sifre sifirlama, token/oturum guvenligi.
+- **Sefer**: arama, filtreleme, detay, dinamik koltuk haritasi.
+- **Bilet**: satin alma, detay, listeleme, iptal.
+- **Odeme**: kupon uygulama, odeme tamamlama, timeout yonetimi.
+- **Admin**: dashboard, loglar, kullanici/rota/otobus/sefer yonetimi, tekli-toplu sefer fiyat guncelleme.
+- **Pages**: About/Careers vb. statik sayfalar.
+
+## Odeme ve Koltuk Guvenligi (Guncel)
+
+- Satin alma ve odeme akislarinda transaction kullanilir.
+- Ayni istegin tekrar gonderilmesine karsi **idempotency key** kullanilir.
+- Odeme referansi deterministik olarak `ticketId + idempotencyKey` uzerinden uretilir.
+- Odeme tamamlama adiminda `Pending -> Completed/Confirmed` gecisi kosullu/atomik update ile yapilir.
+- Koltuk rezervasyonu atomik status update ile yapilir (race kosullarini azaltir).
+- Kupon uygulama/mark-as-used akisi idempotent tekrar cagrilarla uyumludur.
+
+## Middleware ve Platform Guvenligi
+
+- **Security headers + CSP nonce**
+- **Request logging middleware** (`Middleware/RequestLoggingMiddleware.cs`)
+  - `Method`, `Path`, `StatusCode`, `Duration`, `TraceId`, `UserId`, `IP`
+  - `X-Correlation-ID` response header
+  - Hassas payload (kart/token/sifre) loglanmaz
+- **Global anti-forgery** (`AutoValidateAntiforgeryToken`)
+- **Rate limiting**
+  - `AuthLoginPolicy`
+  - `PasswordResetPolicy`
+  - `PasswordResetConfirmPolicy`
+  - `PasswordChangePolicy`
+  - `AdminLogCleanupPolicy`
+- **Response compression** (Brotli/Gzip)
+- **Output cache** (istasyon arama/liste endpointleri)
+
+## Proje Yapisi (Ozet)
+
+```text
+Controllers/
+  AdminController.cs
+  AuthController.cs
+  BiletController.cs
+  OdemeController.cs
+  PagesController.cs
+  SeferController.cs
+
+Services/
+  AdminFlowService.cs
+  AdminService.cs
+  AuthService.cs
+  BiletFlowService.cs
+  CouponService.cs
+  LogService.cs
+  OdemeFlowService.cs
+  PaymentService.cs
+  SearchService.cs
+  SeferFlowService.cs
+  TicketService.cs
+
+Repositories/
+  CouponRepository.cs
+  DepartureRepository.cs
+  LogRepository.cs
+  SeatRepository.cs
+  TicketRepository.cs
+  UserRepository.cs
+
+Middleware/
+  RequestLoggingMiddleware.cs
+
+Views/
+  Admin/ Auth/ Bilet/ Odeme/ Pages/ Sefer/ Shared/
 ```
-├── Models/                     # Entity siniflari (13 dosya)
-│   ├── Role.cs
-│   ├── User.cs
-│   ├── Station.cs
-│   ├── Route.cs
-│   ├── RouteStation.cs
-│   ├── Bus.cs
-│   ├── Departure.cs
-│   ├── Seat.cs
-│   ├── Ticket.cs
-│   ├── Passenger.cs
-│   ├── Payment.cs
-│   ├── Log.cs
-│   └── PasswordReset.cs
-│
-├── DTOs/                       # Data Transfer Objects (7 dosya)
-│   ├── Auth/
-│   │   ├── LoginDto.cs
-│   │   ├── RegisterDto.cs
-│   │   └── AuthResponseDto.cs
-│   ├── Ticket/
-│   │   ├── CreateTicketDto.cs
-│   │   └── TicketResponseDto.cs
-│   └── Search/
-│       ├── SearchQueryDto.cs
-│       └── DepartureResponseDto.cs
-│
-├── Repositories/               # Veritabani erisim katmani (10 dosya)
-│   ├── Interfaces/
-│   │   ├── IUserRepository.cs
-│   │   ├── ITicketRepository.cs
-│   │   ├── IDepartureRepository.cs
-│   │   ├── ISeatRepository.cs
-│   │   └── ILogRepository.cs
-│   ├── UserRepository.cs
-│   ├── TicketRepository.cs
-│   ├── DepartureRepository.cs
-│   ├── SeatRepository.cs
-│   └── LogRepository.cs
-│
-├── Services/                   # Is mantigi katmani (10 dosya)
-│   ├── Interfaces/
-│   │   ├── IAuthService.cs
-│   │   ├── ITicketService.cs
-│   │   ├── ISearchService.cs
-│   │   ├── ILogService.cs
-│   │   └── IAdminService.cs
-│   ├── AuthService.cs
-│   ├── TicketService.cs
-│   ├── SearchService.cs
-│   ├── LogService.cs
-│   └── AdminService.cs
-│
-├── Controllers/                # HTTP istek yonetimi (bos)
-├── Views/                      # Kullanici arayuzu (bos)
-├── AppDbContext.cs             # Entity Framework DbContext
-├── database.md                 # Veritabani semasi
-└── instruction.md              # Proje talimatlari
-```
 
-## Veritabani Semasi
+## Veritabani
 
-![Veritabani ER Diyagrami](db_semasi_beyaz.svg)
+Temel tablolar:
 
-## Veritabani Tablolari
+- `roles`, `users`
+- `stations`, `routes`, `route_stations`
+- `buses`, `departures`, `seats`
+- `tickets`, `passengers`, `payments`
+- `password_resets`, `logs`
+- `coupons`, `coupon_usages`
 
-| Tablo | Aciklama |
-|-------|----------|
-| `roles` | Kullanici rolleri (admin, user, staff) |
-| `users` | Kullanici bilgileri |
-| `stations` | Otobus terminalleri |
-| `routes` | Seferler arasi rotalar |
-| `route_stations` | Ara duraklar |
-| `buses` | Otobus bilgileri |
-| `departures` | Sefer bilgileri |
-| `seats` | Koltuk bilgileri |
-| `tickets` | Bilet kayitlari |
-| `passengers` | Yolcu bilgileri |
-| `payments` | Odeme kayitlari |
-| `logs` | Sistem loglari |
-| `password_resets` | Sifre sifirlama tokenlari |
+ER diyagrami: `db_semasi_beyaz.svg`
 
-## Servis Ozellikleri
-
-### AuthService
-- Kullanici kaydi (Register)
-- Giris yapma (Login)
-- JWT token olusturma ve dogrulama
-- Beni hatirla (Remember Me) tokeni
-- Sifre sifirlama
-- Sifre degistirme
-
-### TicketService
-- Atomik bilet satin alma (transaction)
-- Koltuk musaitlik kontrolu
-- Bilet iptali ve iade
-
-### SearchService
-- Kalkis/varis/tarihe gore sefer arama
-- Istasyon arama
-- Koltuk bilgisi sorgulama
-
-### LogService
-- Otomatik log kaydi (giris, cikis, kayit, satin alma, iptal vb.)
-- Tarih araligina gore log sorgulama
-- Kullaniciya gore log sorgulama
-
-### AdminService
-- Kullanici CRUD islemleri
-- Otobus CRUD islemleri
-- Rota CRUD islemleri
-- Istasyon CRUD islemleri
-- Sefer CRUD islemleri
-- Dashboard istatistikleri
-
-## Teknolojiler
-
-- **Framework:** ASP.NET Core
-- **ORM:** Entity Framework Core
-- **Veritabani:** MySQL (Pomelo.EntityFrameworkCore.MySql)
-- **Kimlik Dogrulama:** JWT (JSON Web Token)
-- **Sifreleme:** BCrypt.Net-Next
-- **Mimari:** Repository Pattern + Service Layer
-
-## Veritabani Normalizasyonu
-
-- ✅ 1NF - Atomik degerler
-- ✅ 2NF - Kismi bagimlilik yok
-- ✅ 3NF - Gecisli bagimlilik yok
-
-### Eklenen Kisitlamalar
-- `stations(name, city)` - Ayni sehirde ayni isimde istasyon engellenir
-- `route_stations(route_id, stop_order)` - Ayni rotada ayni durak sirasi engellenir
-- `passengers(seat_id)` - Ayni koltuga birden fazla yolcu engellenir
-
-## Sonraki Adimlar
-
-1. [ ] Controllers olustur (AuthController, SearchController, TicketController, DashboardController, AdminController)
-2. [ ] Program.cs'de Dependency Injection ayarla
-3. [ ] JWT yapilandirmasi ekle
-4. [ ] Views olustur (Razor veya API olarak birak)
-5. [ ] Birim testleri yaz
-
-## Kurulum
+## Calistirma
 
 ```bash
-# Paketleri yukle
 dotnet restore
-
-# Development ortaminda DB sifresi bos birakilmissa env var ile verin
-# PowerShell:
-# $env:Database__Password="MYSQL_ROOT_SIFRENIZ"
-# veya:
-# $env:MYSQL_PASSWORD="MYSQL_ROOT_SIFRENIZ"
-#
-# Veritabanini olustur
 dotnet ef database update
-
-# Uygulamayi calistir
 dotnet run
 ```
 
-## Gerekli NuGet Paketleri
+> Uygulama acilisinda migration + seed de otomatik tetiklenir (`Program.cs`).
 
-```xml
-<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
-<PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.0" />
-<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
-<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
-```
+## Konfigurasyon Notlari
+
+- `ConnectionStrings:DefaultConnection` zorunlu.
+- DB sifresi baglanti metninde yoksa:
+  - `Database:Password` veya `MYSQL_PASSWORD` ile verilebilir.
+- `Jwt:Key` en az 32 karakter olmali.
+- `App:BaseUrl` sifre sifirlama linki icin kullanilir.
+- `Smtp:*` ayarlari sifre sifirlama maili icin gereklidir.
+- Production'da gizli bilgiler icin user-secrets / environment variable tercih edilmelidir.
+
+## Teknolojiler
+
+- ASP.NET Core 8 (MVC)
+- Entity Framework Core 8
+- Pomelo MySQL provider
+- Cookie + JWT auth
+- BCrypt.Net
+- Repository + Service + FlowService mimarisi
