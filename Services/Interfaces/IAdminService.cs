@@ -1,4 +1,5 @@
 using OtobusBiletRezervasyon.Models;
+using Route = OtobusBiletRezervasyon.Models.Route;
 
 namespace OtobusBiletRezervasyon.Services.Interfaces
 {

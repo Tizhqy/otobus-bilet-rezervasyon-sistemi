@@ -3,11 +3,12 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Services.Interfaces;
+using Route = OtobusBiletRezervasyon.Models.Route;
 
 namespace OtobusBiletRezervasyon.Controllers
 {
     [Authorize(Roles = "Admin,admin")]
-    [Route("Admin/[action]/{id?}")]
+    [Microsoft.AspNetCore.Mvc.Route("Admin/[action]/{id?}")]
     public class AdminController : Controller
     {
         private readonly IAdminService _adminService;

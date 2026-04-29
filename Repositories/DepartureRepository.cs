@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Repositories.Interfaces;
+using Route = OtobusBiletRezervasyon.Models.Route;
 
 namespace OtobusBiletRezervasyon.Repositories
 {
