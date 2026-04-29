@@ -242,7 +242,7 @@
                 el.classList.remove("selected");
             } else {
                 if (selectedSeats.length >= maxSeats) {
-                    alert('You can select up to ' + maxSeats + ' seats per ticket.');
+                    showToast('You can select up to ' + maxSeats + ' seats per ticket.', 'warning');
                     return;
                 }
                 selectedSeats.push({ id: seatId, no: seatNo });
