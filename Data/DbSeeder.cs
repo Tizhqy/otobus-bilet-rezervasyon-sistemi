@@ -120,6 +120,24 @@ namespace OtobusBiletRezervasyon
 
             // ── Seferler + Koltuklar ────────────────────────────────────────
             await EnsureDeparturesAndSeatsAsync(db);
+            
+            // ── Kuponlar ───────────────────────────────────────────────
+            await EnsureCouponsAsync(db);
+        }
+
+        private static async Task EnsureCouponsAsync(AppDbContext db)
+        {
+            if (!await db.Coupons.AnyAsync())
+            {
+                var coupons = new[]
+                {
+                    new Coupon { Code = "HAMSIDEV20", DiscountAmount = 20, DiscountType = "Percentage", IsActive = true, ValidUntil = DateTime.UtcNow.AddMonths(1) },
+                    new Coupon { Code = "OGRENCI10", DiscountAmount = 10, DiscountType = "Percentage", IsActive = true, ValidUntil = DateTime.UtcNow.AddMonths(1) },
+                    new Coupon { Code = "SABIT50", DiscountAmount = 50, DiscountType = "Fixed", IsActive = true, ValidUntil = DateTime.UtcNow.AddMonths(1) }
+                };
+                db.Coupons.AddRange(coupons);
+                await db.SaveChangesAsync();
+            }
         }
 
         private static async Task EnsureDeparturesAndSeatsAsync(AppDbContext db)

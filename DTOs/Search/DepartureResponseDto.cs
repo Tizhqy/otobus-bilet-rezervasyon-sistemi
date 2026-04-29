@@ -10,6 +10,7 @@ namespace OtobusBiletRezervasyon.DTOs.Search
         public decimal Price { get; set; }
         public int AvailableSeats { get; set; }
         public int TotalSeats { get; set; }
+        public bool IsDynamicPricingApplied { get; set; }
     }
 
     public class RouteInfoDto

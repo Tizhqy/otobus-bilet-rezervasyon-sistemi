@@ -156,6 +156,25 @@ namespace OtobusBiletRezervasyon.Repositories
                 .FirstOrDefaultAsync(p => p.TicketId == ticketId);
         }
 
+        public async Task<(TicketStatus TicketStatus, PaymentStatus? PaymentStatus, string? TransactionId)?> GetPaymentStateAsync(int ticketId)
+        {
+            var state = await _context.Tickets
+                .AsNoTracking()
+                .Where(t => t.Id == ticketId)
+                .Select(t => new
+                {
+                    TicketStatus = t.Status,
+                    PaymentStatus = t.Payment != null ? (PaymentStatus?)t.Payment.Status : null,
+                    TransactionId = t.Payment != null ? t.Payment.TransactionId : null
+                })
+                .FirstOrDefaultAsync();
+
+            if (state == null)
+                return null;
+
+            return (state.TicketStatus, state.PaymentStatus, state.TransactionId);
+        }
+
         public async Task UpdatePaymentStatusAsync(int paymentId, PaymentStatus status)
         {
             var payment = await _context.Payments.FindAsync(paymentId);
@@ -168,6 +187,39 @@ namespace OtobusBiletRezervasyon.Repositories
                 }
                 await _context.SaveChangesAsync();
             }
+        }
+
+        public async Task<bool> TryCompletePaymentAndConfirmTicketAsync(
+            int ticketId,
+            PaymentMethod paymentMethod,
+            string referenceNo,
+            DateTime paidAtUtc)
+        {
+            if (ticketId <= 0 || string.IsNullOrWhiteSpace(referenceNo))
+                return false;
+
+            var normalizedReference = referenceNo.Trim().ToUpperInvariant();
+
+            var paymentUpdated = await _context.Payments
+                .Where(p => p.TicketId == ticketId && p.Status == PaymentStatus.Pending)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(p => p.Method, paymentMethod)
+                    .SetProperty(p => p.Status, PaymentStatus.Completed)
+                    .SetProperty(p => p.TransactionId, normalizedReference)
+                    .SetProperty(p => p.PaidAt, paidAtUtc));
+
+            if (paymentUpdated != 1)
+                return false;
+
+            var ticketUpdated = await _context.Tickets
+                .Where(t => t.Id == ticketId && t.Status == TicketStatus.Pending)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(t => t.Status, TicketStatus.Confirmed));
+
+            if (ticketUpdated != 1)
+                throw new InvalidOperationException("Ticket state changed during payment completion.");
+
+            return true;
         }
 
         public async Task<TResult> ExecuteInTransactionAsync<TResult>(Func<Task<TResult>> operation)

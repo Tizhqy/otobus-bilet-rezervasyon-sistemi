@@ -18,6 +18,13 @@
     var cokluTarihVar = sonuclar.Select(s => s.DepartureTime.Date).Distinct().Skip(1).Any();
     var tarihLabel = cokluTarihVar ? "Multiple dates" : kriter.TravelDate.ToString("dd MMM yyyy");
     var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
+    var availableLayouts = sonuclar
+        .Select(s => s.Bus?.Type?.Trim())
+        .Where(type => !string.IsNullOrWhiteSpace(type))
+        .Select(type => type!)
+        .Distinct()
+        .OrderByDescending(type => type)
+        .ToList();
 }
 
 <div style="background:var(--primary);padding:1rem 0;">
@@ -92,6 +99,21 @@
                         <span>$@sliderMin</span>
                         <span id="priceLabel">Up to $@sliderMax</span>
                     </div>
+
+                    @if(availableLayouts.Any())
+                    {
+                        <hr class="my-3" style="border-color:var(--border);" />
+                        <h6 class="mt-2">Bus Layout</h6>
+                        <div id="layoutFilters">
+                            @foreach(var layout in availableLayouts)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input layout-filter" type="checkbox" value="@layout" id="layout_@layout.Replace("+","")" checked>
+                                    <label class="form-check-label" for="layout_@layout.Replace("+","")">@layout Layout</label>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
 
@@ -118,7 +140,7 @@
                     {
                         @foreach (var sefer in sonuclar)
                         {
-                            <div class="result-card mb-3 fade-in" data-price="@sefer.Price.ToString("0.00", CultureInfo.InvariantCulture)">
+                            <div class="result-card mb-3 fade-in" data-price="@sefer.Price.ToString("0.00", CultureInfo.InvariantCulture)" data-layout="@(sefer.Bus?.Type?.Trim() ?? "")">
                                 <div class="row align-items-center g-3">
                                     <div class="col-md-7">
                                         <div class="d-flex align-items-center gap-3">
@@ -127,7 +149,7 @@
                                             </div>
                                             <div class="flex-grow-1">
                                                 <div class="d-flex align-items-center justify-content-between mb-1">
-                                                    <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">@sefer.Bus.PlateNumber</span>
+                                                    <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">@(sefer.Bus?.PlateNumber ?? $"Bus #{sefer.Bus?.Id ?? 0}")</span>
                                                     <span class="seats-badge @(sefer.AvailableSeats <= 5 ? "seats-last" : sefer.AvailableSeats <= 10 ? "seats-few" : "seats-many")">
                                                         @sefer.AvailableSeats seats left
                                                     </span>
@@ -158,6 +180,10 @@
                                             <div class="text-md-end">
                                                 <div class="trip-price">$@sefer.Price.ToString("0.00")</div>
                                                 <div style="font-size:0.8rem;color:var(--text-muted);">per person</div>
+                                                @if (sefer.IsDynamicPricingApplied)
+                                                {
+                                                    <div style="font-size: 0.70rem; color: var(--danger); font-weight: 500; margin-top: 2px;"><i data-lucide="trending-up" style="width:12px;height:12px;"></i> High demand price</div>
+                                                }
                                             </div>
                                             <a asp-controller="Sefer" asp-action="Detay" asp-route-id="@sefer.Id" class="btn btn-primary-HamsiBus">
                                                 Select
@@ -191,20 +217,32 @@
             const foundCount = document.getElementById("foundCount");
             const resultCards = Array.from(document.querySelectorAll("#resultsContainer .result-card[data-price]"));
             const filterNoResultState = document.getElementById("filterNoResultState");
+            const layoutFilters = document.querySelectorAll(".layout-filter");
 
             function updatePriceLabel(value) {
                 if (!priceLabel) return;
                 priceLabel.textContent = "Up to $" + Number(value).toFixed(0);
             }
 
-            function applyPriceFilter() {
-                if (!priceRange || resultCards.length === 0) return;
-                const selectedMaxPrice = Number(priceRange.value);
+            function applyFilters() {
+                if (resultCards.length === 0) return;
+                
+                const selectedMaxPrice = priceRange ? Number(priceRange.value) : Infinity;
+                const selectedLayouts = Array.from(layoutFilters)
+                                             .filter(cb => cb.checked)
+                                             .map(cb => cb.value);
+
                 let visibleCount = 0;
 
                 resultCards.forEach(function (card) {
                     const cardPrice = Number(card.dataset.price || "0");
-                    const isVisible = cardPrice <= selectedMaxPrice;
+                    const cardLayout = card.dataset.layout || "";
+                    
+                    const priceMatch = cardPrice <= selectedMaxPrice;
+                    const layoutMatch = layoutFilters.length === 0 || selectedLayouts.includes(cardLayout);
+                    
+                    const isVisible = priceMatch && layoutMatch;
+                    
                     card.style.display = isVisible ? "" : "none";
                     if (isVisible) visibleCount++;
                 });
@@ -223,25 +261,35 @@
             }
 
             function resetFilters() {
-                if (!priceRange) return;
-                priceRange.value = priceRange.max;
-                updatePriceLabel(priceRange.value);
-                applyPriceFilter();
+                if (priceRange) {
+                    priceRange.value = priceRange.max;
+                    updatePriceLabel(priceRange.value);
+                }
+                if (layoutFilters.length > 0) {
+                    layoutFilters.forEach(cb => cb.checked = true);
+                }
+                applyFilters();
             }
 
             if (priceRange) {
                 priceRange.addEventListener("input", function () {
                     updatePriceLabel(priceRange.value);
-                    applyPriceFilter();
+                    applyFilters();
                 });
                 priceRange.value = priceRange.max;
                 updatePriceLabel(priceRange.value);
-                applyPriceFilter();
+            }
+
+            if (layoutFilters.length > 0) {
+                layoutFilters.forEach(cb => cb.addEventListener("change", applyFilters));
             }
 
             if (resetButton) {
                 resetButton.addEventListener("click", resetFilters);
             }
+            
+            // Initial run
+            applyFilters();
         });
     </script>
 }

@@ -68,16 +68,14 @@ namespace OtobusBiletRezervasyon.Repositories
 
         public async Task<bool> BookSeatAsync(int seatId, int departureId)
         {
-            var seat = await _context.Seats
-                .FirstOrDefaultAsync(s => s.Id == seatId
+            var affectedRows = await _context.Seats
+                .Where(s => s.Id == seatId
                     && s.DepartureId == departureId
-                    && s.Status == SeatStatus.Available);
+                    && s.Status == SeatStatus.Available)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(s => s.Status, SeatStatus.Booked));
 
-            if (seat == null) return false;
-
-            seat.Status = SeatStatus.Booked;
-            await _context.SaveChangesAsync();
-            return true;
+            return affectedRows == 1;
         }
 
         public async Task<bool> ReleaseSeatAsync(int seatId)

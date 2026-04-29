@@ -3,6 +3,7 @@ using OtobusBiletRezervasyon.DTOs.ViewModels;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Services.FlowModels;
 using OtobusBiletRezervasyon.Services.Interfaces;
+using OtobusBiletRezervasyon.Repositories.Interfaces;
 
 namespace OtobusBiletRezervasyon.Services
 {
@@ -10,11 +11,13 @@ namespace OtobusBiletRezervasyon.Services
     {
         private readonly IAdminService _adminService;
         private readonly ILogService _logService;
+        private readonly ICouponRepository _couponRepository;
 
-        public AdminFlowService(IAdminService adminService, ILogService logService)
+        public AdminFlowService(IAdminService adminService, ILogService logService, ICouponRepository couponRepository)
         {
             _adminService = adminService;
             _logService = logService;
+            _couponRepository = couponRepository;
         }
 
         public async Task<AdminDashboardViewModel> GetDashboardAsync()
@@ -582,6 +585,79 @@ namespace OtobusBiletRezervasyon.Services
             }
 
             return ServiceResult.Ok();
+        }
+
+        public async Task<IEnumerable<Coupon>> GetKuponlarAsync()
+        {
+            return await _couponRepository.GetAllAsync();
+        }
+
+        public async Task<ServiceResult> KuponEkleAsync(AdminCouponDto dto, int adminUserId, string ipAddress)
+        {
+            try
+            {
+                var existing = await _couponRepository.GetByCodeAsync(dto.Code);
+                if (existing != null)
+                {
+                    return ServiceResult.Fail(ServiceResultType.Conflict, "Bu kupon kodu zaten mevcuttur.");
+                }
+
+                var coupon = new Coupon
+                {
+                    Code = dto.Code.ToUpperInvariant(),
+                    DiscountAmount = dto.DiscountAmount,
+                    DiscountType = dto.DiscountType,
+                    ValidUntil = dto.ValidUntil,
+                    IsActive = dto.IsActive
+                };
+
+                await _couponRepository.CreateAsync(coupon);
+                await _logService.LogAdminActionAsync(adminUserId, "KUPON_EKLE", $"Kupon eklendi: {coupon.Code}", ipAddress);
+                return ServiceResult.Ok("Kupon eklendi.");
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult.Fail(ServiceResultType.Error, "Kupon eklenirken bir hata olustu: " + ex.Message);
+            }
+        }
+
+        public async Task<ServiceResult> KuponDurumDegistirAsync(int id, int adminUserId, string ipAddress)
+        {
+            var coupon = await _couponRepository.GetByIdAsync(id);
+            if (coupon == null)
+            {
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Kupon bulunamadi.");
+            }
+
+            coupon.IsActive = !coupon.IsActive;
+            await _couponRepository.UpdateAsync(coupon);
+            await _logService.LogAdminActionAsync(adminUserId, "KUPON_DURUM", $"Kupon {coupon.Code} durumu {coupon.IsActive} yapildi", ipAddress);
+            return ServiceResult.Ok("Kupon durumu guncellendi.");
+        }
+
+        public async Task<ServiceResult> KuponSilAsync(int id, int adminUserId, string ipAddress)
+        {
+            var coupon = await _couponRepository.GetByIdAsync(id);
+            if (coupon == null)
+            {
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Kupon bulunamadi.");
+            }
+
+            // We normally shouldn't randomly delete coupons if they have been used, but CouponUsage table has cascade delete or we just do a soft-delete physically.
+            // Wait, does ICouponRepository.DeleteAsync actually delete? Yes. Let's try.
+            try
+            {
+                var deleted = await _couponRepository.DeleteAsync(id);
+                if (!deleted)
+                    return ServiceResult.Fail(ServiceResultType.Error, "Kupon silinemedi.");
+
+                await _logService.LogAdminActionAsync(adminUserId, "KUPON_SIL", $"Kupon silindi: {coupon.Code}", ipAddress);
+                return ServiceResult.Ok("Kupon silindi.");
+            }
+            catch (Exception)
+            {
+                return ServiceResult.Fail(ServiceResultType.Conflict, "Bu kupon su an kullanimda oldugu veya gecmiste kullanildigi icin silinemez. Onun yerine pasife almayi deneyin.");
+            }
         }
     }
 }

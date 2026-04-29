@@ -26,7 +26,7 @@ namespace OtobusBiletRezervasyon
         /// <summary>
         /// Yaklasan seferler listesinde gosterilecek varsayilan sayi.
         /// </summary>
-        public const int DefaultUpcomingDepartureCount = 10;
+        public const int DefaultUpcomingDepartureCount = 50;
 
         /// <summary>
         /// Yaklasan seferler listesinde gosterilecek maksimum sayi.
@@ -57,6 +57,11 @@ namespace OtobusBiletRezervasyon
         /// Istasyon arama sorgusu icin maksimum karakter sayisi.
         /// </summary>
         public const int MaxStationSearchQueryLength = 50;
+
+        /// <summary>
+        /// Bilet basina alinabilecek maksimum koltuk / yolcu sayisi.
+        /// </summary>
+        public const int MaxPassengerPerTicket = 4;
 
         /// <summary>
         /// Bilet satisinin kapanip kapamadigini kontrol eden yardimci metod.

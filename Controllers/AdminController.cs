@@ -28,6 +28,21 @@ namespace OtobusBiletRezervasyon.Controllers
         }
 
         [HttpGet]
+        public IActionResult GetLiveBusLocations()
+        {
+            var random = new Random();
+            var locations = new[]
+            {
+                new { Id = 1, Plate = "34 ABC 123", Lat = 41.0082 + (random.NextDouble() * 0.1 - 0.05), Lng = 28.9784 + (random.NextDouble() * 0.1 - 0.05), Speed = random.Next(60, 100), Status = "Active" },
+                new { Id = 2, Plate = "06 XYZ 987", Lat = 39.9208 + (random.NextDouble() * 0.1 - 0.05), Lng = 32.8541 + (random.NextDouble() * 0.1 - 0.05), Speed = random.Next(60, 100), Status = "Active" },
+                new { Id = 3, Plate = "61 TS 1967", Lat = 41.0027 + (random.NextDouble() * 0.1 - 0.05), Lng = 39.7168 + (random.NextDouble() * 0.1 - 0.05), Speed = random.Next(60, 100), Status = "Active" },
+                new { Id = 4, Plate = "35 IZM 35", Lat = 38.4237 + (random.NextDouble() * 0.1 - 0.05), Lng = 27.1428 + (random.NextDouble() * 0.1 - 0.05), Speed = 0, Status = "Stopped" }
+            };
+            
+            return Json(locations);
+        }
+
+        [HttpGet]
         public async Task<IActionResult> Otobusler()
         {
             var buses = await _adminFlowService.GetOtobuslerAsync();
@@ -381,6 +396,46 @@ namespace OtobusBiletRezervasyon.Controllers
 
             SetResultToast(result);
             return RedirectToAction("Kullanicilar");
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Kuponlar()
+        {
+            var kuponlar = await _adminFlowService.GetKuponlarAsync();
+            return View(kuponlar);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> KuponEkle(AdminCouponDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["Hata"] = "Lutfen form verilerini kontrol edip dogru giriniz.";
+                return RedirectToAction("Kuponlar");
+            }
+
+            var result = await _adminFlowService.KuponEkleAsync(dto, GetCurrentUserId(), GetClientIpAddress());
+            SetResultToast(result);
+            return RedirectToAction("Kuponlar");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> KuponDurumDegistir(int id)
+        {
+            var result = await _adminFlowService.KuponDurumDegistirAsync(id, GetCurrentUserId(), GetClientIpAddress());
+            SetResultToast(result);
+            return RedirectToAction("Kuponlar");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> KuponSil(int id)
+        {
+            var result = await _adminFlowService.KuponSilAsync(id, GetCurrentUserId(), GetClientIpAddress());
+            SetResultToast(result);
+            return RedirectToAction("Kuponlar");
         }
 
         [HttpGet]

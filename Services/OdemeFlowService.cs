@@ -12,17 +12,20 @@ namespace OtobusBiletRezervasyon.Services
         private readonly IPaymentService _paymentService;
         private readonly ILogService _logService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICouponService _couponService;
 
         public OdemeFlowService(
             ITicketService ticketService,
             IPaymentService paymentService,
             ILogService logService,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            ICouponService couponService)
         {
             _ticketService = ticketService;
             _paymentService = paymentService;
             _logService = logService;
             _httpContextAccessor = httpContextAccessor;
+            _couponService = couponService;
         }
 
         public async Task<ServiceResult<OdemeSayfasiViewModel>> HazirlaOdemeSayfasiAsync(int biletId, int userId)
@@ -68,7 +71,9 @@ namespace OtobusBiletRezervasyon.Services
             int userId,
             string odemeYontemi,
             string paymentToken,
-            string? cardLast4)
+            string idempotencyKey,
+            string? cardLast4,
+            string? couponCode)
         {
             var ticket = await _ticketService.GetTicketByIdAsync(biletId);
             if (ticket == null)
@@ -76,6 +81,39 @@ namespace OtobusBiletRezervasyon.Services
 
             if (ticket.UserId != userId)
                 return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.Forbidden, "Bu bilete erisim yetkiniz yok.");
+
+            var originalTicketPrice = ticket.TotalPrice;
+
+            if (!IsValidPaymentToken(paymentToken))
+                return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.ValidationError, "Odeme token'i gecersiz.");
+
+            if (!IsValidIdempotencyKey(idempotencyKey))
+                return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.ValidationError, "Idempotency anahtari gecersiz.");
+
+            if (!string.IsNullOrWhiteSpace(cardLast4) && !IsValidCardLast4(cardLast4))
+                return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.ValidationError, "Kart son 4 hanesi gecersiz.");
+
+            if (!TryParsePaymentMethod(odemeYontemi, out var paymentMethod))
+                return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.ValidationError, "Gecersiz odeme yontemi.");
+
+            var referenceNo = _paymentService.GenerateReferenceNumber(biletId, idempotencyKey);
+            var couponCodeNormalized = couponCode?.Trim();
+
+            if (IsConfirmedStatus(ticket.Status)
+                && IsCompletedPaymentStatus(ticket.Payment?.Status)
+                && string.Equals(ticket.Payment?.TransactionId, referenceNo, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrWhiteSpace(couponCodeNormalized))
+                {
+                    await _couponService.MarkCouponAsUsedAsync(userId, couponCodeNormalized);
+                }
+
+                return ServiceResult<OdemeTamamlamaViewModel>.Ok(new OdemeTamamlamaViewModel
+                {
+                    ReferenceNo = referenceNo,
+                    OdemeYontemi = odemeYontemi
+                });
+            }
 
             if (!IsPendingStatus(ticket.Status))
             {
@@ -93,22 +131,57 @@ namespace OtobusBiletRezervasyon.Services
                 return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.Expired, "Odeme suresi doldu.");
             }
 
-            if (!IsValidPaymentToken(paymentToken))
-                return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.ValidationError, "Odeme token'i gecersiz.");
+            var couponApplied = false;
 
-            if (!string.IsNullOrWhiteSpace(cardLast4) && !IsValidCardLast4(cardLast4))
-                return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.ValidationError, "Kart son 4 hanesi gecersiz.");
+            // Apply coupon logic if present
+            if (!string.IsNullOrWhiteSpace(couponCodeNormalized))
+            {
+                var couponResult = await UygulaKuponAsync(biletId, userId, couponCodeNormalized);
+                if (!couponResult.Success)
+                    return ServiceResult<OdemeTamamlamaViewModel>.Fail(couponResult.Type, couponResult.Message ?? "Kupon hatasi.");
 
-            if (!TryParsePaymentMethod(odemeYontemi, out var paymentMethod))
-                return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.ValidationError, "Gecersiz odeme yontemi.");
+                var updatePriceResult = await _ticketService.UpdateTicketAndPaymentPriceAsync(biletId, couponResult.Data);
+                if (!updatePriceResult)
+                    return ServiceResult<OdemeTamamlamaViewModel>.Fail(ServiceResultType.Conflict, "Fiyat guncellenemedi.");
 
-            var referenceNo = _paymentService.GenerateReferenceNumber();
+                couponApplied = true;
+            }
+
             var completed = await _ticketService.CompletePaymentAsync(biletId, paymentMethod, referenceNo);
             if (!completed)
             {
+                var latestTicket = await _ticketService.GetTicketByIdAsync(biletId);
+                if (latestTicket != null
+                    && latestTicket.UserId == userId
+                    && IsConfirmedStatus(latestTicket.Status)
+                    && IsCompletedPaymentStatus(latestTicket.Payment?.Status)
+                    && string.Equals(latestTicket.Payment?.TransactionId, referenceNo, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.IsNullOrWhiteSpace(couponCodeNormalized))
+                    {
+                        await _couponService.MarkCouponAsUsedAsync(userId, couponCodeNormalized);
+                    }
+
+                    return ServiceResult<OdemeTamamlamaViewModel>.Ok(new OdemeTamamlamaViewModel
+                    {
+                        ReferenceNo = referenceNo,
+                        OdemeYontemi = odemeYontemi
+                    });
+                }
+
+                if (couponApplied)
+                {
+                    await _ticketService.UpdateTicketAndPaymentPriceAsync(biletId, originalTicketPrice);
+                }
+
                 return ServiceResult<OdemeTamamlamaViewModel>.Fail(
                     ServiceResultType.Conflict,
                     $"Gecersiz islem. Bilet durumu: {ticket.Status}");
+            }
+
+            if (couponApplied && !string.IsNullOrWhiteSpace(couponCodeNormalized))
+            {
+                await _couponService.MarkCouponAsUsedAsync(userId, couponCodeNormalized);
             }
 
             await _logService.LogAsync(userId, "ODEME_TAMAMLA",
@@ -138,10 +211,41 @@ namespace OtobusBiletRezervasyon.Services
             return (true, false, (int)timeRemaining.TotalSeconds);
         }
 
+        public async Task<ServiceResult<decimal>> UygulaKuponAsync(int biletId, int userId, string kuponKodu)
+        {
+            var ticket = await _ticketService.GetTicketByIdAsync(biletId);
+            if (ticket == null || ticket.UserId != userId)
+                return ServiceResult<decimal>.Fail(ServiceResultType.NotFound, "Bilet bulunamadı veya yetkisiz.");
+
+            if (!IsPendingStatus(ticket.Status))
+                return ServiceResult<decimal>.Fail(ServiceResultType.Conflict, "Bilet onaylanmış veya iptal edilmiş.");
+
+            var coupon = await _couponService.GetValidCouponAsync(kuponKodu, userId);
+            if (coupon == null)
+                return ServiceResult<decimal>.Fail(ServiceResultType.ValidationError, "Geçersiz veya süresi dolmuş/kullanılmış kupon.");
+
+            var newPrice = await _couponService.CalculateDiscountAsync(kuponKodu, ticket.TotalPrice, userId);
+            return ServiceResult<decimal>.Ok(newPrice);
+        }
+
         private static bool IsPendingStatus(string status)
         {
             return status.Equals("Pending", StringComparison.OrdinalIgnoreCase)
                 || status.Equals("BEKLEMEDE", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsConfirmedStatus(string? status)
+        {
+            return !string.IsNullOrWhiteSpace(status)
+                && (status.Equals("Confirmed", StringComparison.OrdinalIgnoreCase)
+                    || status.Equals("ONAYLANDI", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool IsCompletedPaymentStatus(string? status)
+        {
+            return !string.IsNullOrWhiteSpace(status)
+                && (status.Equals("Completed", StringComparison.OrdinalIgnoreCase)
+                    || status.Equals("TAMAMLANDI", StringComparison.OrdinalIgnoreCase));
         }
 
         private static bool IsValidPaymentToken(string? paymentToken)
@@ -153,6 +257,18 @@ namespace OtobusBiletRezervasyon.Services
                 (c >= '0' && c <= '9') ||
                 (c >= 'a' && c <= 'f') ||
                 (c >= 'A' && c <= 'F'));
+        }
+
+        private static bool IsValidIdempotencyKey(string? idempotencyKey)
+        {
+            if (string.IsNullOrWhiteSpace(idempotencyKey))
+                return false;
+
+            var key = idempotencyKey.Trim();
+            if (key.Length < 16 || key.Length > 64)
+                return false;
+
+            return key.All(c => char.IsLetterOrDigit(c) || c == '-');
         }
 
         private static bool IsValidCardLast4(string? cardLast4)

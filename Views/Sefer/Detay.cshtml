@@ -159,15 +159,22 @@
                         <span>Base fare</span>
                         <span>$@sefer.Price.ToString("0.00")</span>
                     </div>
+                    @if (sefer.IsDynamicPricingApplied)
+                    {
+                        <div class="summary-row" style="color: var(--danger); font-size: 0.8rem; border-bottom: none; margin-bottom: -5px;">
+                            <span><i data-lucide="trending-up" style="width:14px;height:14px;margin-right:2px;"></i> High Demand (+10%)</span>
+                        </div>
+                    }
                     <div class="summary-row total">
                         <span>Total</span>
-                        <span id="totalPrice">$@sefer.Price.ToString("0.00")</span>
+                        @{
+                            var actualPrice = sefer.IsDynamicPricingApplied ? sefer.Price * 1.1m : sefer.Price;
+                        }
+                        <span id="totalPrice">$@actualPrice.ToString("0.00")</span>
                     </div>
 
                     <a asp-controller="Bilet"
                        asp-action="SatinAl"
-                       asp-route-seferId="@sefer.Id"
-                       asp-route-koltukId="0"
                        class="btn btn-primary-HamsiBus w-100 mt-3 py-3 justify-content-center"
                        id="continueBtn"
                        style="pointer-events:none;opacity:0.5;">
@@ -186,24 +193,63 @@
 
 @section Scripts {
     <script nonce="@cspNonce">
-        let selectedSeatId = 0;
-        const checkoutBase = '@Url.Action("SatinAl", "Bilet", new { seferId = sefer.Id, koltukId = "__SEAT_ID__" })';
+        let selectedSeats = [];
+        const maxSeats = @OtobusBiletRezervasyon.AppConfig.MaxPassengerPerTicket;
+        const checkoutBase = '@Url.Action("SatinAl", "Bilet")?seferId=@sefer.Id';
+        const basePrice = @actualPrice.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+        function renderSeats() {
+            const listEl = document.getElementById("selectedSeatsList");
+            const continueBtn = document.getElementById("continueBtn");
+            const totalPriceEl = document.getElementById("totalPrice");
+            
+            if (selectedSeats.length === 0) {
+                listEl.innerHTML = '<span class="text-muted" style="font-size:0.9rem;" id="noSeatMsg">No seat selected yet</span>';
+                continueBtn.href = "#";
+                continueBtn.style.pointerEvents = "none";
+                continueBtn.style.opacity = "0.5";
+                totalPriceEl.textContent = "$" + basePrice.toFixed(2);
+                return;
+            }
+
+            let html = '';
+            let params = '';
+            let total = 0;
+
+            selectedSeats.forEach(s => {
+                html += '<div class="d-flex align-items-center gap-2 mb-1"><span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:var(--primary);color:#fff;border-radius:6px;font-size:0.75rem;font-weight:700;">' + s.no + '</span><span>Seat ' + s.no + '</span></div>';
+                params += '&koltukIds=' + s.id;
+                total += basePrice;
+            });
+            
+            listEl.innerHTML = html;
+            totalPriceEl.textContent = "$" + total.toFixed(2);
+            continueBtn.href = checkoutBase + params;
+            continueBtn.style.pointerEvents = "auto";
+            continueBtn.style.opacity = "1";
+        }
 
         function toggleSeat(el) {
             if (el.classList.contains("taken")) return;
 
-            document.querySelectorAll(".seat.selected").forEach(s => s.classList.remove("selected"));
-            el.classList.add("selected");
-            selectedSeatId = parseInt(el.getAttribute("data-seat-id"));
-
+            const seatId = parseInt(el.getAttribute("data-seat-id"));
             const seatNo = el.getAttribute("data-seat");
-            const listEl = document.getElementById("selectedSeatsList");
-            listEl.innerHTML = '<div class="d-flex align-items-center gap-2"><span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:var(--primary);color:#fff;border-radius:6px;font-size:0.75rem;font-weight:700;">' + seatNo + "</span><span>Seat " + seatNo + "</span></div>";
 
-            const continueBtn = document.getElementById("continueBtn");
-            continueBtn.href = checkoutBase.replace("__SEAT_ID__", selectedSeatId);
-            continueBtn.style.pointerEvents = "auto";
-            continueBtn.style.opacity = "1";
+            const index = selectedSeats.findIndex(s => s.id === seatId);
+            
+            if (index > -1) {
+                selectedSeats.splice(index, 1);
+                el.classList.remove("selected");
+            } else {
+                if (selectedSeats.length >= maxSeats) {
+                    showToast('You can select up to ' + maxSeats + ' seats per ticket.', 'warning');
+                    return;
+                }
+                selectedSeats.push({ id: seatId, no: seatNo });
+                el.classList.add("selected");
+            }
+
+            renderSeats();
         }
 
         document.addEventListener("DOMContentLoaded", function () {

@@ -11,7 +11,10 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
             int userId,
             string odemeYontemi,
             string paymentToken,
-            string? cardLast4);
+            string idempotencyKey,
+            string? cardLast4,
+            string? couponCode);
         Task<(bool authorized, bool expired, int seconds)> KalanSureAsync(int biletId, int userId);
+        Task<ServiceResult<decimal>> UygulaKuponAsync(int biletId, int userId, string kuponKodu);
     }
 }

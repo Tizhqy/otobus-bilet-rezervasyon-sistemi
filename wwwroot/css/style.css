@@ -35,7 +35,36 @@
   --radius: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
-  --transition: all 0.2s ease;
+}
+
+body.dark-mode {
+  --primary: #2980b9;
+  --primary-dark: #3498db;
+  --primary-light: #5dade2;
+  --primary-bg: #1e293b;
+  --accent: #f39c12;
+  --accent-dark: #e67e22;
+  --accent-light: #f1c40f;
+  --bg-body: #0f172a;
+  --bg-white: #1e293b;
+  --text-dark: #f8fafc;
+  --text-body: #cbd5e1;
+  --text-muted: #64748b;
+  --border: #334155;
+  --border-light: #1e293b;
+  --success: #22c55e;
+  --success-bg: rgba(34,197,94,0.15);
+  --danger: #ef4444;
+  --danger-bg: rgba(239,68,68,0.15);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245,158,11,0.15);
+  --info: #38bdf8;
+  --info-bg: rgba(14,165,233,0.15);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+  --shadow: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.5), 0 2px 4px -2px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -4px rgba(0,0,0,0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.5), 0 8px 10px -6px rgba(0,0,0,0.3);
 }
 
 * { box-sizing: border-box; }
@@ -46,6 +75,42 @@ body {
   background: var(--bg-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark mode compatibility for Bootstrap cards/lists */
+body.dark-mode .card {
+  background-color: var(--bg-white);
+  border-color: var(--border);
+  color: var(--text-body);
+}
+body.dark-mode .card-HamsiBus,
+body.dark-mode .HamsiBus-Card {
+  background-color: var(--bg-white);
+  border-color: var(--border);
+  color: var(--text-body);
+}
+body.dark-mode .card-HamsiBus .card-body,
+body.dark-mode .HamsiBus-Card .card-body,
+body.dark-mode .card-HamsiBus p,
+body.dark-mode .HamsiBus-Card p {
+  color: var(--text-body) !important;
+}
+body.dark-mode .card .text-muted {
+  color: var(--text-muted) !important;
+}
+body.dark-mode .list-group-item {
+  background-color: transparent;
+  border-color: var(--border);
+  color: var(--text-body);
+}
+body.dark-mode .btn-outline-primary {
+  color: var(--primary-light);
+  border-color: var(--primary-light);
+}
+body.dark-mode .btn-outline-primary:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-light);
+  color: #0f172a;
 }
 
 /* ── Toasts ── */
@@ -178,7 +243,8 @@ a { text-decoration: none; transition: var(--transition); }
 }
 
 /* ── Cards ── */
-.card-HamsiBus {
+.card-HamsiBus,
+.HamsiBus-Card {
   background: var(--bg-white);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -186,11 +252,13 @@ a { text-decoration: none; transition: var(--transition); }
   transition: var(--transition);
   overflow: hidden;
 }
-.card-HamsiBus:hover {
+.card-HamsiBus:hover,
+.HamsiBus-Card:hover {
   box-shadow: var(--shadow-md);
   border-color: #cbd5e1;
 }
-.card-HamsiBus .card-body { padding: 1.25rem; }
+.card-HamsiBus .card-body,
+.HamsiBus-Card .card-body { padding: 1.25rem; }
 
 /* ── Hero Section ── */
 .hero-section {
