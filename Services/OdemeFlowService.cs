@@ -1,8 +1,10 @@
+using OtobusBiletRezervasyon.DTOs.Ticket;
 using OtobusBiletRezervasyon.DTOs.ViewModels;
 using OtobusBiletRezervasyon.Models;
 using OtobusBiletRezervasyon.Services.FlowModels;
 using OtobusBiletRezervasyon.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace OtobusBiletRezervasyon.Services
 {
@@ -13,19 +15,28 @@ namespace OtobusBiletRezervasyon.Services
         private readonly ILogService _logService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ICouponService _couponService;
+        private readonly IAuthService _authService;
+        private readonly IEmailService _emailService;
+        private readonly ILogger<OdemeFlowService> _logger;
 
         public OdemeFlowService(
             ITicketService ticketService,
             IPaymentService paymentService,
             ILogService logService,
             IHttpContextAccessor httpContextAccessor,
-            ICouponService couponService)
+            ICouponService couponService,
+            IAuthService authService,
+            IEmailService emailService,
+            ILogger<OdemeFlowService> logger)
         {
             _ticketService = ticketService;
             _paymentService = paymentService;
             _logService = logService;
             _httpContextAccessor = httpContextAccessor;
             _couponService = couponService;
+            _authService = authService;
+            _emailService = emailService;
+            _logger = logger;
         }
 
         public async Task<ServiceResult<OdemeSayfasiViewModel>> HazirlaOdemeSayfasiAsync(int biletId, int userId)
@@ -188,6 +199,12 @@ namespace OtobusBiletRezervasyon.Services
                 $"Bilet #{biletId} odendi. Referans: {referenceNo}, Yontem: {odemeYontemi}, Kart: {MaskLast4(cardLast4)}",
                 GetClientIpAddress());
 
+            var confirmedTicket = await _ticketService.GetTicketByIdAsync(biletId);
+            if (confirmedTicket != null)
+            {
+                await SendTicketConfirmationEmailAsync(userId, confirmedTicket, referenceNo);
+            }
+
             return ServiceResult<OdemeTamamlamaViewModel>.Ok(new OdemeTamamlamaViewModel
             {
                 ReferenceNo = referenceNo,
@@ -314,6 +331,26 @@ namespace OtobusBiletRezervasyon.Services
         private string GetClientIpAddress()
         {
             return _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        }
+
+        private async Task SendTicketConfirmationEmailAsync(int userId, TicketResponseDto ticket, string referenceNo)
+        {
+            var user = await _authService.GetCurrentUserAsync(userId);
+            if (user == null || string.IsNullOrWhiteSpace(user.Email))
+            {
+                return;
+            }
+
+            var mailSent = await _emailService.SendTicketConfirmationEmailAsync(
+                user.Email,
+                user.FirstName,
+                ticket,
+                referenceNo);
+
+            if (!mailSent)
+            {
+                _logger.LogWarning("Bilet onay e-postasi gonderilemedi. UserId={UserId}, TicketId={TicketId}", userId, ticket.Id);
+            }
         }
     }
 }

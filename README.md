@@ -33,6 +33,7 @@ Proje sorumluluklari net ayrilmistir:
 - **Odeme**: kupon uygulama, odeme tamamlama, timeout yonetimi.
 - **Admin**: dashboard, loglar, kullanici/rota/otobus/sefer yonetimi, tekli-toplu sefer fiyat guncelleme.
 - **Pages**: About/Careers vb. statik sayfalar.
+- **Transactional e-posta**: hos geldiniz, sifre sifirlama ve odeme sonrasi bilet onay e-postalari.
 
 ## Odeme ve Koltuk Guvenligi (Guncel)
 

@@ -85,6 +85,12 @@ namespace OtobusBiletRezervasyon.Services
 
             await _userRepository.CreateAsync(user);
 
+            var welcomeMailSent = await _emailService.SendWelcomeEmailAsync(user.Email, user.FirstName);
+            if (!welcomeMailSent)
+            {
+                _logger.LogWarning("Hos geldiniz e-postasi gonderilemedi. UserId={UserId}", user.Id);
+            }
+
             // Generate JWT token
             var token = await GenerateJwtTokenAsync(user.Id);
 
@@ -263,7 +269,7 @@ namespace OtobusBiletRezervasyon.Services
                 return true;
             }
 
-            var mailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, resetLink);
+            var mailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, user.FirstName, resetLink);
             if (!mailSent)
             {
                 await _userRepository.MarkPasswordResetAsUsedAsync(passwordReset.Id);
