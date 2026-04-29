@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search Results — HamsiBus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/public/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+  <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999;"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-HamsiBus">
+    <div class="container">
+      <a class="navbar-brand" href="/Views/home/index.html">
+        <i data-lucide="bus" style="width:28px;height:28px;"></i>
+        HamsiBus
+      </a>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+        <i data-lucide="menu" style="width:24px;height:24px;"></i>
+      </button>
+      <div class="collapse navbar-collapse" id="navMain">
+        <ul class="navbar-nav me-auto ms-4">
+          <li class="nav-item"><a class="nav-link" href="/Views/home/index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link active" href="/Views/search/search-results.html">Routes</a></li>
+          <li class="nav-item"><a class="nav-link" href="/Views/dashboard/dashboard.html">My Trips</a></li>
+        </ul>
+        <div class="d-flex align-items-center gap-2">
+          <a href="/Views/auth/login.html" class="btn btn-ghost">Log In</a>
+          <a href="/Views/auth/register.html" class="btn btn-primary-HamsiBus">Sign Up</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Search Summary Bar -->
+  <div style="background:var(--primary);padding:1rem 0;">
+    <div class="container">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-3">
+          <div class="d-flex align-items-center gap-2" style="color:#fff;">
+            <i data-lucide="map-pin" style="width:16px;height:16px;opacity:0.7;"></i>
+            <div>
+              <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">From</div>
+              <div style="font-weight:700;">New York</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-auto d-none d-md-block">
+          <i data-lucide="arrow-right" style="width:20px;height:20px;color:rgba(255,255,255,0.4);"></i>
+        </div>
+        <div class="col-md-3">
+          <div class="d-flex align-items-center gap-2" style="color:#fff;">
+            <i data-lucide="map-pin" style="width:16px;height:16px;opacity:0.7;"></i>
+            <div>
+              <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">To</div>
+              <div style="font-weight:700;">Washington DC</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="d-flex align-items-center gap-2" style="color:#fff;">
+            <i data-lucide="calendar" style="width:16px;height:16px;opacity:0.7;"></i>
+            <div>
+              <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">Date</div>
+              <div style="font-weight:700;" id="displayDate">Sat, Mar 7</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="d-flex align-items-center gap-2" style="color:#fff;">
+            <i data-lucide="users" style="width:16px;height:16px;opacity:0.7;"></i>
+            <div>
+              <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">Passengers</div>
+              <div style="font-weight:700;">1 Adult</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-1 text-end">
+          <a href="/Views/home/index.html" class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-radius:8px;">
+            <i data-lucide="pencil" style="width:16px;height:16px;"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <section class="py-4">
+    <div class="container">
+      <div class="row g-4">
+        <!-- Filters Sidebar -->
+        <div class="col-lg-3">
+          <div class="filter-section mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h5 class="mb-0 h6 fw-700" style="color:var(--text-dark);">Filters</h5>
+              <button class="btn btn-sm btn-ghost" style="font-size:0.8rem;color:var(--accent);" onclick="resetFilters()">Reset all</button>
+            </div>
+
+            <!-- Price Range -->
+            <h6>Price Range</h6>
+            <input type="range" class="form-range" min="10" max="80" value="80" id="priceRange" oninput="updatePriceLabel(this.value)">
+            <div class="price-range-display">
+              <span>$10</span>
+              <span id="priceLabel">Up to $80</span>
+            </div>
+            <hr style="border-color:var(--border);">
+
+            <!-- Departure Time -->
+            <h6>Departure Time</h6>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="timeMorning" checked>
+              <label class="form-check-label" for="timeMorning">
+                <i data-lucide="sunrise" style="width:14px;height:14px;display:inline;vertical-align:-2px;color:var(--accent);"></i>
+                Morning (6AM - 12PM)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="timeAfternoon" checked>
+              <label class="form-check-label" for="timeAfternoon">
+                <i data-lucide="sun" style="width:14px;height:14px;display:inline;vertical-align:-2px;color:var(--accent);"></i>
+                Afternoon (12PM - 6PM)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="timeEvening" checked>
+              <label class="form-check-label" for="timeEvening">
+                <i data-lucide="sunset" style="width:14px;height:14px;display:inline;vertical-align:-2px;color:var(--accent);"></i>
+                Evening (6PM - 12AM)
+              </label>
+            </div>
+            <hr style="border-color:var(--border);">
+
+            <!-- Seat Type -->
+            <h6>Seat Type</h6>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="seatStandard" checked>
+              <label class="form-check-label" for="seatStandard">Standard</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="seatPremium">
+              <label class="form-check-label" for="seatPremium">Premium</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="seatBusiness">
+              <label class="form-check-label" for="seatBusiness">Business</label>
+            </div>
+            <hr style="border-color:var(--border);">
+
+            <!-- Amenities -->
+            <h6>Amenities</h6>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="amenWifi">
+              <label class="form-check-label" for="amenWifi">WiFi</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="amenPower">
+              <label class="form-check-label" for="amenPower">Power Outlets</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="amenToilet">
+              <label class="form-check-label" for="amenToilet">Restroom</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div class="col-lg-9">
+          <!-- Sort Bar -->
+          <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
+            <div>
+              <span class="fw-700" style="color:var(--text-dark);">8 buses found</span>
+              <span class="text-muted" style="font-size:0.9rem;"> &middot; New York to Washington DC</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span style="font-size:0.85rem;color:var(--text-muted);">Sort by:</span>
+              <select class="form-select form-select-sm" style="width:auto;border-radius:var(--radius-sm);border-color:var(--border);" onchange="sortResults(this.value)">
+                <option value="price">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="departure" selected>Departure: Earliest</option>
+                <option value="duration">Duration: Shortest</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Loading Skeleton (hidden after load) -->
+          <div id="loadingSkeleton" style="display:none;">
+            <div class="skeleton-card mb-3">
+              <div class="d-flex gap-3 align-items-center">
+                <div class="skeleton" style="width:48px;height:48px;border-radius:10px;"></div>
+                <div class="flex-grow-1">
+                  <div class="skeleton skeleton-title"></div>
+                  <div class="skeleton skeleton-text w-75"></div>
+                </div>
+                <div class="skeleton" style="width:80px;height:36px;border-radius:8px;"></div>
+              </div>
+            </div>
+            <div class="skeleton-card mb-3">
+              <div class="d-flex gap-3 align-items-center">
+                <div class="skeleton" style="width:48px;height:48px;border-radius:10px;"></div>
+                <div class="flex-grow-1">
+                  <div class="skeleton skeleton-title"></div>
+                  <div class="skeleton skeleton-text w-75"></div>
+                </div>
+                <div class="skeleton" style="width:80px;height:36px;border-radius:8px;"></div>
+              </div>
+            </div>
+            <div class="skeleton-card mb-3">
+              <div class="d-flex gap-3 align-items-center">
+                <div class="skeleton" style="width:48px;height:48px;border-radius:10px;"></div>
+                <div class="flex-grow-1">
+                  <div class="skeleton skeleton-title"></div>
+                  <div class="skeleton skeleton-text w-75"></div>
+                </div>
+                <div class="skeleton" style="width:80px;height:36px;border-radius:8px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result Cards -->
+          <div id="resultsContainer">
+
+            <!-- Result 1 -->
+            <div class="result-card mb-3 fade-in">
+              <div class="row align-items-center g-3">
+                <div class="col-md-7">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="operator-logo">
+                      <i data-lucide="bus" style="width:22px;height:22px;"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">GreenLine Express</span>
+                        <span class="seats-badge seats-many">23 seats left</span>
+                      </div>
+                      <div class="d-flex align-items-center gap-3">
+                        <div>
+                          <div class="trip-time">07:00</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">New York</div>
+                        </div>
+                        <div class="trip-line">
+                          <div class="line"></div>
+                        </div>
+                        <div class="text-center">
+                          <div class="trip-duration">4h 15m</div>
+                          <div style="font-size:0.7rem;color:var(--text-muted);">Direct</div>
+                        </div>
+                        <div class="trip-line">
+                          <div class="line"></div>
+                        </div>
+                        <div class="text-end">
+                          <div class="trip-time">11:15</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">Washington</div>
+                        </div>
+                      </div>
+                      <div class="d-flex gap-2 mt-2">
+                        <span class="amenity-tag"><i data-lucide="wifi" style="width:11px;height:11px;"></i> WiFi</span>
+                        <span class="amenity-tag"><i data-lucide="plug" style="width:11px;height:11px;"></i> Power</span>
+                        <span class="amenity-tag"><i data-lucide="bath" style="width:11px;height:11px;"></i> WC</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-5">
+                  <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3">
+                    <div class="text-md-end">
+                      <div class="trip-price">$25.00</div>
+                      <div style="font-size:0.8rem;color:var(--text-muted);">per person</div>
+                    </div>
+                    <a href="/Views/search/seat-selection.html" class="btn btn-primary-HamsiBus">
+                      Select
+                      <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Result 2 -->
+            <div class="result-card mb-3 fade-in" style="animation-delay:0.05s;">
+              <div class="row align-items-center g-3">
+                <div class="col-md-7">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="operator-logo" style="background:rgba(230,126,34,0.1);color:var(--accent);">
+                      <i data-lucide="bus" style="width:22px;height:22px;"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">FlexRide</span>
+                        <span class="seats-badge seats-few">8 seats left</span>
+                      </div>
+                      <div class="d-flex align-items-center gap-3">
+                        <div>
+                          <div class="trip-time">08:30</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">New York</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-center">
+                          <div class="trip-duration">4h 00m</div>
+                          <div style="font-size:0.7rem;color:var(--text-muted);">Direct</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-end">
+                          <div class="trip-time">12:30</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">Washington</div>
+                        </div>
+                      </div>
+                      <div class="d-flex gap-2 mt-2">
+                        <span class="amenity-tag"><i data-lucide="wifi" style="width:11px;height:11px;"></i> WiFi</span>
+                        <span class="amenity-tag"><i data-lucide="armchair" style="width:11px;height:11px;"></i> Reclining</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-5">
+                  <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3">
+                    <div class="text-md-end">
+                      <div class="trip-price">$29.00</div>
+                      <div style="font-size:0.8rem;color:var(--text-muted);">per person</div>
+                    </div>
+                    <a href="/Views/search/seat-selection.html" class="btn btn-primary-HamsiBus">
+                      Select
+                      <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Result 3 (Best Value badge) -->
+            <div class="result-card mb-3 fade-in" style="animation-delay:0.1s;border-color:var(--primary-light);">
+              <div style="position:absolute;top:-1px;left:1.5rem;background:var(--primary);color:#fff;font-size:0.7rem;font-weight:700;padding:0.2rem 0.75rem;border-radius:0 0 6px 6px;text-transform:uppercase;letter-spacing:0.5px;">Best Value</div>
+              <div class="row align-items-center g-3">
+                <div class="col-md-7">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="operator-logo" style="background:var(--success-bg);color:var(--success);">
+                      <i data-lucide="bus" style="width:22px;height:22px;"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">MegaWay</span>
+                        <span class="seats-badge seats-many">30 seats left</span>
+                      </div>
+                      <div class="d-flex align-items-center gap-3">
+                        <div>
+                          <div class="trip-time">10:00</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">New York</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-center">
+                          <div class="trip-duration">4h 30m</div>
+                          <div style="font-size:0.7rem;color:var(--text-muted);">Direct</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-end">
+                          <div class="trip-time">14:30</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">Washington</div>
+                        </div>
+                      </div>
+                      <div class="d-flex gap-2 mt-2">
+                        <span class="amenity-tag"><i data-lucide="wifi" style="width:11px;height:11px;"></i> WiFi</span>
+                        <span class="amenity-tag"><i data-lucide="plug" style="width:11px;height:11px;"></i> Power</span>
+                        <span class="amenity-tag"><i data-lucide="bath" style="width:11px;height:11px;"></i> WC</span>
+                        <span class="amenity-tag"><i data-lucide="luggage" style="width:11px;height:11px;"></i> 2 Bags</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-5">
+                  <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3">
+                    <div class="text-md-end">
+                      <div class="trip-price">$22.00</div>
+                      <div style="font-size:0.8rem;color:var(--text-muted);">per person</div>
+                    </div>
+                    <a href="/Views/search/seat-selection.html" class="btn btn-primary-HamsiBus">
+                      Select
+                      <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Result 4 -->
+            <div class="result-card mb-3 fade-in" style="animation-delay:0.15s;">
+              <div class="row align-items-center g-3">
+                <div class="col-md-7">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="operator-logo">
+                      <i data-lucide="bus" style="width:22px;height:22px;"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">CityLink Premium</span>
+                        <span class="seats-badge seats-last">3 seats left</span>
+                      </div>
+                      <div class="d-flex align-items-center gap-3">
+                        <div>
+                          <div class="trip-time">12:00</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">New York</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-center">
+                          <div class="trip-duration">3h 45m</div>
+                          <div style="font-size:0.7rem;color:var(--text-muted);">Direct</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-end">
+                          <div class="trip-time">15:45</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">Washington</div>
+                        </div>
+                      </div>
+                      <div class="d-flex gap-2 mt-2">
+                        <span class="amenity-tag"><i data-lucide="wifi" style="width:11px;height:11px;"></i> WiFi</span>
+                        <span class="amenity-tag"><i data-lucide="plug" style="width:11px;height:11px;"></i> Power</span>
+                        <span class="amenity-tag"><i data-lucide="armchair" style="width:11px;height:11px;"></i> Leather</span>
+                        <span class="amenity-tag"><i data-lucide="bath" style="width:11px;height:11px;"></i> WC</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-5">
+                  <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3">
+                    <div class="text-md-end">
+                      <div class="trip-price">$45.00</div>
+                      <div style="font-size:0.8rem;color:var(--text-muted);">per person</div>
+                    </div>
+                    <a href="/Views/search/seat-selection.html" class="btn btn-primary-HamsiBus">
+                      Select
+                      <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Result 5 -->
+            <div class="result-card mb-3 fade-in" style="animation-delay:0.2s;">
+              <div class="row align-items-center g-3">
+                <div class="col-md-7">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="operator-logo" style="background:rgba(230,126,34,0.1);color:var(--accent);">
+                      <i data-lucide="bus" style="width:22px;height:22px;"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">FlexRide</span>
+                        <span class="seats-badge seats-many">18 seats left</span>
+                      </div>
+                      <div class="d-flex align-items-center gap-3">
+                        <div>
+                          <div class="trip-time">14:15</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">New York</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-center">
+                          <div class="trip-duration">4h 15m</div>
+                          <div style="font-size:0.7rem;color:var(--text-muted);">Direct</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-end">
+                          <div class="trip-time">18:30</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">Washington</div>
+                        </div>
+                      </div>
+                      <div class="d-flex gap-2 mt-2">
+                        <span class="amenity-tag"><i data-lucide="wifi" style="width:11px;height:11px;"></i> WiFi</span>
+                        <span class="amenity-tag"><i data-lucide="armchair" style="width:11px;height:11px;"></i> Reclining</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-5">
+                  <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3">
+                    <div class="text-md-end">
+                      <div class="trip-price">$27.00</div>
+                      <div style="font-size:0.8rem;color:var(--text-muted);">per person</div>
+                    </div>
+                    <a href="/Views/search/seat-selection.html" class="btn btn-primary-HamsiBus">
+                      Select
+                      <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Result 6 -->
+            <div class="result-card mb-3 fade-in" style="animation-delay:0.25s;">
+              <div class="row align-items-center g-3">
+                <div class="col-md-7">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="operator-logo" style="background:var(--success-bg);color:var(--success);">
+                      <i data-lucide="bus" style="width:22px;height:22px;"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">MegaWay Night</span>
+                        <span class="seats-badge seats-many">15 seats left</span>
+                      </div>
+                      <div class="d-flex align-items-center gap-3">
+                        <div>
+                          <div class="trip-time">21:00</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">New York</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-center">
+                          <div class="trip-duration">5h 00m</div>
+                          <div style="font-size:0.7rem;color:var(--text-muted);">1 stop</div>
+                        </div>
+                        <div class="trip-line"><div class="line"></div></div>
+                        <div class="text-end">
+                          <div class="trip-time">02:00</div>
+                          <div style="font-size:0.8rem;color:var(--text-muted);">Washington</div>
+                        </div>
+                      </div>
+                      <div class="d-flex gap-2 mt-2">
+                        <span class="amenity-tag"><i data-lucide="wifi" style="width:11px;height:11px;"></i> WiFi</span>
+                        <span class="amenity-tag"><i data-lucide="plug" style="width:11px;height:11px;"></i> Power</span>
+                        <span class="amenity-tag"><i data-lucide="bath" style="width:11px;height:11px;"></i> WC</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-5">
+                  <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3">
+                    <div class="text-md-end">
+                      <div class="trip-price">$19.00</div>
+                      <div style="font-size:0.8rem;color:var(--text-muted);">per person</div>
+                    </div>
+                    <a href="/Views/search/seat-selection.html" class="btn btn-primary-HamsiBus">
+                      Select
+                      <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Error State (hidden) -->
+          <div id="errorState" style="display:none;">
+            <div class="error-state">
+              <div class="error-icon">
+                <i data-lucide="alert-triangle" style="width:28px;height:28px;"></i>
+              </div>
+              <h5 class="mb-2">Something went wrong</h5>
+              <p class="text-muted mb-3">We couldn't load the results. Please try again.</p>
+              <button class="btn btn-primary-HamsiBus" onclick="location.reload()">
+                <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
+                Try Again
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="/public/js/main.js"></script>
+  <script>
+    function updatePriceLabel(val) {
+      document.getElementById('priceLabel').textContent = 'Up to $' + val;
+    }
+    function resetFilters() {
+      document.getElementById('priceRange').value = 80;
+      updatePriceLabel(80);
+      document.querySelectorAll('.filter-section .form-check-input').forEach(function(cb) {
+        cb.checked = cb.id === 'seatStandard' || cb.id === 'timeMorning' || cb.id === 'timeAfternoon' || cb.id === 'timeEvening';
+      });
+      showToast('Filters have been reset', 'info');
+    }
+    function sortResults(val) {
+      showToast('Sorted by ' + val.replace('-', ' '), 'info');
+    }
+  </script>
+</body>
+</html>
+
