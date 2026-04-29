@@ -1,0 +1,4 @@
+﻿"Url","Iterations","AvgMs","MinMs","P95Ms","MaxMs","SuccessCount","FailedCount"
+"https://localhost:5001/Auth/Giris","30","32,75","19,93","54,69","62,91","0","30"
+"https://localhost:5001/Sefer/Index","30","25,19","16,71","37,05","47,68","0","30"
+"https://localhost:5001/Sefer/IstasyonAra?query=is","30","26,88","13,81","40,51","40,62","0","30"
