@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Threading.RateLimiting;
 using System.Text;
 using OtobusBiletRezervasyon;
 using OtobusBiletRezervasyon.Services;
@@ -12,14 +14,33 @@ using OtobusBiletRezervasyon.Repositories.Interfaces;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Veritabani ──────────────────────────────────────────────────────────────
-var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+var connStr = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+
+if (string.IsNullOrWhiteSpace(connStr))
+{
+    throw new InvalidOperationException(
+        "Connection string missing. Set ConnectionStrings:DefaultConnection in configuration or ConnectionStrings__DefaultConnection as environment variable.");
+}
+
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseMySql(connStr, ServerVersion.AutoDetect(connStr)));
 
 // ── JWT Ayarlari ────────────────────────────────────────────────────────────
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "BuCokGizliBirAnahtarEnAz32Karakter!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "OtobusBiletRezervasyon";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "OtobusBiletRezervasyon";
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? Environment.GetEnvironmentVariable("Jwt__Key");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? Environment.GetEnvironmentVariable("Jwt__Issuer")
+    ?? "OtobusBiletRezervasyon";
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? Environment.GetEnvironmentVariable("Jwt__Audience")
+    ?? "OtobusBiletRezervasyon";
+
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+{
+    throw new InvalidOperationException(
+        "JWT key missing or too short. Set Jwt:Key in configuration or Jwt__Key as environment variable (minimum 32 characters).");
+}
 
 // ── Auth ────────────────────────────────────────────────────────────────────
 builder.Services.AddAuthentication(options =>
@@ -57,6 +78,24 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", "admin"));
 });
+
+// ── Rate Limiting ───────────────────────────────────────────────────────────
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+});
+
+builder.Services.AddMemoryCache();
 
 // ── Repository Kayitlari ─────────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -100,17 +139,33 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 // Security Headers
 app.Use(async (ctx, next) =>
 {
-    ctx.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    ctx.Response.Headers.Append("X-Frame-Options", "DENY");
-    ctx.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
-    ctx.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["X-XSS-Protection"] = "0";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    ctx.Response.Headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()";
+    ctx.Response.Headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; " +
+        "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; " +
+        "img-src 'self' data: https:; " +
+        "font-src 'self' https://cdn.jsdelivr.net data:; " +
+        "connect-src 'self'; " +
+        "frame-ancestors 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self';";
     await next();
 });
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

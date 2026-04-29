@@ -10,8 +10,8 @@ ASP.NET Core ve MySQL kullanilarak gelistirilen kapsamli bir otobus bilet rezerv
 | DTOs | ✅ Tamamlandi |
 | Repositories | ✅ Tamamlandi |
 | Services | ✅ Tamamlandi |
-| Controllers | ❌ Yapilmadi |
-| Views | ❌ Yapilmadi |
+| Controllers | ✅ Tamamlandi |
+| Views | ✅ Tamamlandi |
 | Database | ✅ Sema hazir |
 
 ## Mimari Yapi
@@ -70,8 +70,14 @@ ASP.NET Core ve MySQL kullanilarak gelistirilen kapsamli bir otobus bilet rezerv
 │   ├── LogService.cs
 │   └── AdminService.cs
 │
-├── Controllers/                # HTTP istek yonetimi (bos)
-├── Views/                      # Kullanici arayuzu (bos)
+├── Controllers/                # HTTP istek yonetimi (5 dosya)
+│   ├── AuthController.cs
+│   ├── BiletController.cs
+│   ├── AdminController.cs
+│   ├── OdemeController.cs
+│   └── SeferController.cs
+│
+├── Views/                      # Kullanici arayuzu (tamamlandi)
 ├── AppDbContext.cs             # Entity Framework DbContext
 ├── database.md                 # Veritabani semasi
 └── instruction.md              # Proje talimatlari
@@ -154,13 +160,35 @@ ASP.NET Core ve MySQL kullanilarak gelistirilen kapsamli bir otobus bilet rezerv
 
 ## Sonraki Adimlar
 
-1. [ ] Controllers olustur (AuthController, SearchController, TicketController, DashboardController, AdminController)
+1. [x] Controllers olustur (AuthController, SearchController, TicketController, DashboardController, AdminController)
 2. [ ] Program.cs'de Dependency Injection ayarla
 3. [ ] JWT yapilandirmasi ekle
-4. [ ] Views olustur (Razor veya API olarak birak)
+4. [x] Views olustur (Razor veya API olarak birak)
 5. [ ] Birim testleri yaz
 
 ## Kurulum
+
+## Guvenli Yapilandirma (Onemli)
+
+Bu projede hassas bilgiler artik `appsettings.json` icinde tutulmamaktadir.
+Uygulamayi calistirmadan once su environment variable degerlerini ayarlayin:
+
+```powershell
+$env:ConnectionStrings__DefaultConnection="Server=localhost;Database=otobus_bilet;User=root;Password=PAROLANIZ;AllowPublicKeyRetrieval=true;"
+$env:Jwt__Key="EnAz32KarakterUzunGizliAnahtarDegeri"
+$env:Jwt__Issuer="OtobusBiletRezervasyon"
+$env:Jwt__Audience="OtobusBiletRezervasyon"
+```
+
+Notlar:
+- `Jwt__Key` en az 32 karakter olmalidir.
+- Production ortaminda secret manager / CI secret store kullanin.
+
+## P0 Guvenlik Iyilestirmeleri
+
+- Login endpointi icin IP bazli rate limit eklendi.
+- Basarisiz giris denemeleri icin gecici lockout (5 deneme / 15 dakika) eklendi.
+- Temel security header seti ve CSP eklendi.
 
 ```bash
 # Paketleri yukle

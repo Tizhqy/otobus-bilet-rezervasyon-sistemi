@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 using OtobusBiletRezervasyon.DTOs.Auth;
 using OtobusBiletRezervasyon.Services.Interfaces;
@@ -10,13 +12,19 @@ namespace OtobusBiletRezervasyon.Controllers
 {
     public class AuthController : Controller
     {
+        private const int MaxFailedLoginAttempts = 5;
+        private static readonly TimeSpan FailedAttemptWindow = TimeSpan.FromMinutes(15);
+        private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
         private readonly IAuthService _authService;
         private readonly ILogService _logService;
+        private readonly IMemoryCache _memoryCache;
 
-        public AuthController(IAuthService authService, ILogService logService)
+        public AuthController(IAuthService authService, ILogService logService, IMemoryCache memoryCache)
         {
             _authService = authService;
             _logService = logService;
+            _memoryCache = memoryCache;
         }
 
         #region Kayit (Register)
@@ -70,10 +78,20 @@ namespace OtobusBiletRezervasyon.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("login")]
         public async Task<IActionResult> Giris(LoginDto model, string? returnUrl = null)
         {
             if (User.Identity?.IsAuthenticated == true)
                 return RedirectToAction("Index", "Sefer");
+
+            var normalizedEmail = NormalizeEmail(model.Email);
+            if (TryGetLockoutRemaining(normalizedEmail, out var remaining))
+            {
+                ModelState.AddModelError(string.Empty,
+                    $"Cok fazla basarisiz giris denemesi. Lutfen {Math.Ceiling(remaining.TotalMinutes)} dakika sonra tekrar deneyin.");
+                ViewBag.ReturnUrl = returnUrl;
+                return View(model);
+            }
 
             if (!ModelState.IsValid)
             {
@@ -85,10 +103,13 @@ namespace OtobusBiletRezervasyon.Controllers
 
             if (!result.Success)
             {
+                RegisterFailedAttempt(normalizedEmail);
                 ModelState.AddModelError(string.Empty, result.Message);
                 ViewBag.ReturnUrl = returnUrl;
                 return View(model);
             }
+
+            ResetLoginProtection(normalizedEmail);
 
             var claims = new List<Claim>
             {
@@ -288,6 +309,62 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             return int.TryParse(userIdClaim, out int userId) ? userId : 0;
+        }
+
+        private string NormalizeEmail(string? email)
+        {
+            return (email ?? string.Empty).Trim().ToLowerInvariant();
+        }
+
+        private string GetAttemptCountKey(string email)
+        {
+            return $"auth:login:attempts:{GetClientIpAddress()}:{email}";
+        }
+
+        private string GetLockoutKey(string email)
+        {
+            return $"auth:login:lockout:{GetClientIpAddress()}:{email}";
+        }
+
+        private bool TryGetLockoutRemaining(string email, out TimeSpan remaining)
+        {
+            remaining = TimeSpan.Zero;
+
+            if (!_memoryCache.TryGetValue<DateTimeOffset>(GetLockoutKey(email), out var lockoutUntil))
+                return false;
+
+            var now = DateTimeOffset.UtcNow;
+            if (lockoutUntil <= now)
+            {
+                _memoryCache.Remove(GetLockoutKey(email));
+                _memoryCache.Remove(GetAttemptCountKey(email));
+                return false;
+            }
+
+            remaining = lockoutUntil - now;
+            return true;
+        }
+
+        private void RegisterFailedAttempt(string email)
+        {
+            var attemptKey = GetAttemptCountKey(email);
+            var lockoutKey = GetLockoutKey(email);
+
+            var attempts = _memoryCache.Get<int?>(attemptKey) ?? 0;
+            attempts++;
+
+            _memoryCache.Set(attemptKey, attempts, FailedAttemptWindow);
+
+            if (attempts >= MaxFailedLoginAttempts)
+            {
+                _memoryCache.Set(lockoutKey, DateTimeOffset.UtcNow.Add(LockoutDuration), LockoutDuration);
+            }
+        }
+
+        private void ResetLoginProtection(string email)
+        {
+            _memoryCache.Remove(GetAttemptCountKey(email));
+            _memoryCache.Remove(GetLockoutKey(email));
         }
 
         private string GetClientIpAddress()
