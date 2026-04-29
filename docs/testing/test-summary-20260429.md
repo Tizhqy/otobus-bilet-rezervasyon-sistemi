@@ -30,5 +30,12 @@ Uygulama: `dotnet run` (Testing)
 SQLi script: `tests/security/sql-injection-tests.ps1 -BaseUrl "https://localhost:5001"`
 Performans script: `tests/performance/baseline-performance-test.ps1 -BaseUrl "https://localhost:5001" -Iterations 30 -WarmupIterations 5`
 
+**Güncel iterasyon notu:**
+SQLi scripti daha fazla endpoint/POST senaryosu ile genişletildi ve `http://localhost:5000` üzerinden tekrar çalıştırıldı.
+Son çalıştırmada kayıtlar şu şekilde oluştu:
+  - `StationSearch`, `SeferIndex`, `AuthGiris`, `AuthLoginPost`, `AuthRegisterPost` için ağırlıklı olarak `ERROR`/`400` sonuçları.
+  - `BiletSatinAlPost` ve `BiletKoltukKontrolPost` için `FAIL`/`500` sonuçları.
+Bu, POST tarafında hata yüzeyinin daha görünür hale geldiğini gösteriyor; özellikle `BiletController` içindeki iş akışları için sunucu tarafı exception logları ayrıca gözden geçirilmeli.
+
 ---
 Rapor otomatik oluşturuldu ve repoya eklendi.

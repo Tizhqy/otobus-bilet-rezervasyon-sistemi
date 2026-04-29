@@ -15,10 +15,38 @@ $payloads = @(
 
 # Scenarios: define endpoint template and method
 $scenarios = @(
-    @{ Name = 'StationSearch'; Method = 'GET'; Url = "$BaseUrl/Sefer/IstasyonAra?query={0}" },
-    @{ Name = 'SeferIndex';   Method = 'GET'; Url = "$BaseUrl/Sefer/Index" },
-    @{ Name = 'AuthGiris';    Method = 'GET'; Url = "$BaseUrl/Auth/Giris" },
-    @{ Name = 'AuthLoginPost'; Method = 'POST'; Url = "$BaseUrl/Auth/Giris" }
+    @{ Name = 'StationSearch'; Method = 'GET'; Url = "$BaseUrl/Sefer/IstasyonAra?query={0}"; Body = $null; ContentType = $null },
+    @{ Name = 'SeferIndex'; Method = 'GET'; Url = "$BaseUrl/Sefer/Index"; Body = $null; ContentType = $null },
+    @{ Name = 'AuthGiris'; Method = 'GET'; Url = "$BaseUrl/Auth/Giris"; Body = $null; ContentType = $null },
+    @{ Name = 'AuthLoginPost'; Method = 'POST'; Url = "$BaseUrl/Auth/Giris"; ContentType = 'application/x-www-form-urlencoded'; Body = {
+            param($payload)
+            @{ Email = $payload; Password = $payload; RememberMe = 'false' }
+        }
+    },
+    @{ Name = 'AuthRegisterPost'; Method = 'POST'; Url = "$BaseUrl/Auth/Kayit"; ContentType = 'application/x-www-form-urlencoded'; Body = {
+            param($payload)
+            @{ FirstName = $payload; LastName = $payload; Email = "sqli+$([System.Net.WebUtility]::UrlEncode($payload))@example.com"; Password = $payload; ConfirmPassword = $payload; Phone = $payload }
+        }
+    },
+    @{ Name = 'BiletSatinAlPost'; Method = 'POST'; Url = "$BaseUrl/Bilet/SatinAl"; ContentType = 'application/x-www-form-urlencoded'; Body = {
+            param($payload)
+            @{
+                DepartureId = '1'
+                'Passengers[0].SeatId' = '1'
+                'Passengers[0].FirstName' = $payload
+                'Passengers[0].LastName' = $payload
+                'Passengers[0].IdNumber' = $payload
+                'Payment.Amount' = '1.00'
+                'Payment.Method' = 'credit_card'
+                'Payment.TransactionId' = [guid]::NewGuid().ToString('N')
+            }
+        }
+    },
+    @{ Name = 'BiletKoltukKontrolPost'; Method = 'POST'; Url = "$BaseUrl/Bilet/KoltukKontrol?seferId=1"; ContentType = 'application/json'; Body = {
+            param($payload)
+            @($payload, $payload)
+        }
+    }
 )
 
 $results = New-Object System.Collections.Generic.List[object]
@@ -67,9 +95,17 @@ foreach ($scenario in $scenarios) {
                 $resp = Invoke-WebRequest -Uri $url -Method Get -UseBasicParsing -ErrorAction Stop
             }
             else {
-                # POST form payloads (common fields)
-                $body = @{ email = $payload; password = $payload }
-                $resp = Invoke-WebRequest -Uri $url -Method Post -Body $body -ContentType 'application/x-www-form-urlencoded' -UseBasicParsing -ErrorAction Stop
+                $bodyFactory = $scenario.Body
+                $contentType = $scenario.ContentType
+
+                if ($contentType -eq 'application/json') {
+                    $body = $bodyFactory.Invoke($payload) | ConvertTo-Json -Depth 5 -Compress
+                    $resp = Invoke-WebRequest -Uri $url -Method Post -Body $body -ContentType $contentType -UseBasicParsing -ErrorAction Stop
+                }
+                else {
+                    $body = $bodyFactory.Invoke($payload)
+                    $resp = Invoke-WebRequest -Uri $url -Method Post -Body $body -ContentType $contentType -UseBasicParsing -ErrorAction Stop
+                }
             }
 
             $status = 0
