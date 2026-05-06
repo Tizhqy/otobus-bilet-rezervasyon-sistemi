@@ -39,6 +39,11 @@ namespace OtobusBiletRezervasyon.Services
             return await _userRepository.GetByIdAsync(id);
         }
 
+        public async Task<Role?> GetRoleByIdAsync(int id)
+        {
+            return await _userRepository.GetRoleByIdAsync(id);
+        }
+
         public async Task<User> CreateUserAsync(User user, string password)
         {
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);

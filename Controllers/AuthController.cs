@@ -206,8 +206,8 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Giris");
             }
 
-            var userId = await _authService.ValidateJwtTokenAsync(token);
-            if (userId == null)
+            var isValid = await _authService.ValidatePasswordResetTokenAsync(token);
+            if (!isValid)
             {
                 TempData["Hata"] = "Gecersiz veya suresi dolmus baglanti.";
                 return RedirectToAction("Giris");

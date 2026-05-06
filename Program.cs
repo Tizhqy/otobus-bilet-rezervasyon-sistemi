@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using System.Threading.RateLimiting;
 using System.Text;
@@ -130,6 +131,11 @@ builder.Services.AddAntiforgery(opt =>
 var app = builder.Build();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -138,11 +144,17 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseRouting();
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+app.UseStaticFiles(new StaticFileOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    FileProvider = new PhysicalFileProvider(Path.Combine(app.Environment.ContentRootPath, "public")),
+    RequestPath = "/public"
 });
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(Path.Combine(app.Environment.ContentRootPath, "Views")),
+    RequestPath = "/Views"
+});
+app.UseRouting();
 
 // Security Headers
 app.Use(async (ctx, next) =>
@@ -154,10 +166,10 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()";
     ctx.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
-        "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; " +
-        "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; " +
+        "script-src 'self' https://cdn.jsdelivr.net https://unpkg.com 'unsafe-inline'; " +
+        "style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com 'unsafe-inline'; " +
         "img-src 'self' data: https:; " +
-        "font-src 'self' https://cdn.jsdelivr.net data:; " +
+        "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:; " +
         "connect-src 'self'; " +
         "frame-ancestors 'none'; " +
         "base-uri 'self'; " +

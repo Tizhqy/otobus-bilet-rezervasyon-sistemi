@@ -84,7 +84,7 @@ namespace OtobusBiletRezervasyon.Controllers
             if (departure == null)
                 return NotFound();
 
-            if (departure.DepartureTime <= DateTime.UtcNow)
+            if (departure.DepartureTime <= DateTime.Now)
             {
                 TempData["Hata"] = "Bu sefer icin bilet satisi sona ermistir.";
                 return RedirectToAction("Index");

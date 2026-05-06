@@ -1,0 +1,30 @@
+@model IEnumerable<OtobusBiletRezervasyon.DTOs.Search.DepartureResponseDto>
+
+<div class="row g-3">
+@foreach (var departure in Model ?? Enumerable.Empty<OtobusBiletRezervasyon.DTOs.Search.DepartureResponseDto>())
+{
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="card-HamsiBus h-100">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h5 class="mb-1">@departure.Route.OriginStation.Name → @departure.Route.DestinationStation.Name</h5>
+                        <div class="text-muted" style="font-size:0.9rem;">@departure.Route.OriginStation.City to @departure.Route.DestinationStation.City</div>
+                    </div>
+                    <span class="badge rounded-pill" style="background:var(--primary-bg);color:var(--primary);">@departure.AvailableSeats seats</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div>
+                        <div class="text-muted" style="font-size:0.8rem;">Departure</div>
+                        <div class="fw-700">@departure.DepartureTime.ToString("dd MMM HH:mm")</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-muted" style="font-size:0.8rem;">Price</div>
+                        <div class="fw-700">@departure.Price.ToString("0.00")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+</div>

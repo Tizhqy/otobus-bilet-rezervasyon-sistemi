@@ -43,7 +43,8 @@ namespace OtobusBiletRezervasyon.Controllers
             if (id <= 0)
                 return NotFound();
 
-            var ticket = await _ticketService.GetTicketByIdAsync(id);
+            int userId = GetCurrentUserId();
+            var ticket = await _ticketService.GetTicketForUserAsync(userId, id);
 
             if (ticket == null)
                 return NotFound();
@@ -80,7 +81,7 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Index", "Sefer");
             }
 
-            if (departure.DepartureTime <= DateTime.UtcNow)
+            if (departure.DepartureTime <= DateTime.Now)
             {
                 TempData["Hata"] = "Bu sefer icin bilet satisi sona ermistir.";
                 return RedirectToAction("Index", "Sefer");

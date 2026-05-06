@@ -6,11 +6,13 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
     {
         // Ticket Operations
         Task<TicketResponseDto?> GetTicketByIdAsync(int ticketId);
+        Task<TicketResponseDto?> GetTicketForUserAsync(int userId, int ticketId);
         Task<IEnumerable<TicketResponseDto>> GetUserTicketsAsync(int userId);
         Task<IEnumerable<TicketResponseDto>> GetAllTicketsAsync();
 
         // Purchase - Atomic Transaction
         Task<TicketResponseDto> PurchaseTicketAsync(int userId, CreateTicketDto createTicketDto);
+        Task<bool> CompletePaymentAsync(int ticketId, int userId);
 
         // Cancellation
         Task<bool> CancelTicketAsync(int ticketId, int userId);

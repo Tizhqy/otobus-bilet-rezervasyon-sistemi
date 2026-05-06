@@ -279,6 +279,17 @@ namespace OtobusBiletRezervasyon.Services
             return true;
         }
 
+        public async Task<bool> ValidatePasswordResetTokenAsync(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return false;
+            }
+
+            var passwordReset = await _userRepository.GetPasswordResetByTokenAsync(token);
+            return passwordReset != null;
+        }
+
         public async Task<bool> ResetPasswordAsync(string token, string newPassword)
         {
             var passwordReset = await _userRepository.GetPasswordResetByTokenAsync(token);

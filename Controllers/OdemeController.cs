@@ -35,7 +35,7 @@ namespace OtobusBiletRezervasyon.Controllers
             }
 
             int userId = GetCurrentUserId();
-            var ticket = await _ticketService.GetTicketByIdAsync(biletId);
+            var ticket = await _ticketService.GetTicketForUserAsync(userId, biletId);
 
             if (ticket == null)
             {
@@ -50,7 +50,7 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Liste", "Bilet");
             }
 
-            var timeRemaining = ticket.CreatedAt.AddMinutes(PaymentTimeoutMinutes) - DateTime.UtcNow;
+            var timeRemaining = GetPaymentRemainingTime(ticket.CreatedAt);
 
             if (timeRemaining.TotalSeconds <= 0)
             {
@@ -82,7 +82,7 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             int userId = GetCurrentUserId();
 
-            var ticket = await _ticketService.GetTicketByIdAsync(biletId);
+            var ticket = await _ticketService.GetTicketForUserAsync(userId, biletId);
 
             if (ticket == null)
             {
@@ -97,7 +97,7 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Liste", "Bilet");
             }
 
-            if (ticket.CreatedAt.AddMinutes(PaymentTimeoutMinutes) < DateTime.UtcNow)
+            if (_paymentService.IsPaymentExpired(ticket.CreatedAt, PaymentTimeoutMinutes))
             {
                 await _ticketService.CancelTicketAsync(biletId, userId);
                 TempData["Hata"] = "Odeme suresi doldu.";
@@ -111,6 +111,13 @@ namespace OtobusBiletRezervasyon.Controllers
             }
 
             var referenceNo = _paymentService.GenerateReferenceNumber();
+
+            var completed = await _ticketService.CompletePaymentAsync(biletId, userId);
+            if (!completed)
+            {
+                TempData["Hata"] = "Odeme tamamlanamadi. Lutfen tekrar deneyin.";
+                return RedirectToAction("Odeme", new { biletId });
+            }
 
             await _logService.LogAsync(userId, "ODEME_TAMAMLA",
                 $"Bilet #{biletId} odendi. Referans: {referenceNo}, Yontem: {odemeYontemi}",
@@ -145,12 +152,12 @@ namespace OtobusBiletRezervasyon.Controllers
         [HttpGet]
         public async Task<IActionResult> KalanSure(int biletId)
         {
-            var ticket = await _ticketService.GetTicketByIdAsync(biletId);
+            var ticket = await _ticketService.GetTicketForUserAsync(GetCurrentUserId(), biletId);
 
             if (ticket == null)
                 return Json(new { expired = true, seconds = 0 });
 
-            var timeRemaining = ticket.CreatedAt.AddMinutes(PaymentTimeoutMinutes) - DateTime.UtcNow;
+            var timeRemaining = GetPaymentRemainingTime(ticket.CreatedAt);
 
             if (timeRemaining.TotalSeconds <= 0)
                 return Json(new { expired = true, seconds = 0 });
@@ -171,6 +178,18 @@ namespace OtobusBiletRezervasyon.Controllers
         private string GetClientIpAddress()
         {
             return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        }
+
+        private static TimeSpan GetPaymentRemainingTime(DateTime createdAt)
+        {
+            var createdAtUtc = createdAt.Kind switch
+            {
+                DateTimeKind.Utc => createdAt,
+                DateTimeKind.Local => createdAt.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(createdAt, DateTimeKind.Local).ToUniversalTime()
+            };
+
+            return createdAtUtc.AddMinutes(PaymentTimeoutMinutes) - DateTime.UtcNow;
         }
 
         #endregion

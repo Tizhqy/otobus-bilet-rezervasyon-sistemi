@@ -1,0 +1,10 @@
+@model IEnumerable<OtobusBiletRezervasyon.DTOs.Search.SeatInfoDto>
+
+<div class="seat-grid">
+@foreach (var seat in Model ?? Enumerable.Empty<OtobusBiletRezervasyon.DTOs.Search.SeatInfoDto>())
+{
+    <div class="seat-item seat-@seat.Status.ToLowerInvariant()" title="Seat @seat.SeatNumber">
+        @seat.SeatNumber
+    </div>
+}
+</div>

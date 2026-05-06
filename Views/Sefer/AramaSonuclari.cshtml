@@ -1,0 +1,69 @@
+﻿@model IEnumerable<DepartureResponseDto>
+@{
+	Layout = null;
+	var search = ViewBag.AramaKriterleri as SearchQueryDto;
+}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Arama Sonuclari</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+	<link href="/public/css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="container py-4">
+	<div class="d-flex justify-content-between align-items-center mb-4">
+		<h1 class="h4 mb-0">Arama Sonuclari</h1>
+		<a asp-controller="Sefer" asp-action="Index" class="btn btn-ghost">Yeni Arama</a>
+	</div>
+
+	@if (search != null)
+	{
+		<div class="alert alert-info">
+			Tarih: <strong>@search.TravelDate.ToString("dd.MM.yyyy")</strong>, Yolcu: <strong>@search.PassengerCount</strong>
+		</div>
+	}
+
+	@if (!Model.Any())
+	{
+		<div class="card-HamsiBus">
+			<div class="card-body p-4">
+				<p class="mb-0">Bu kriterlerde uygun sefer bulunamadi.</p>
+			</div>
+		</div>
+	}
+	else
+	{
+		<div class="row g-3">
+			@foreach (var departure in Model)
+			{
+				<div class="col-12">
+					<div class="card-HamsiBus">
+						<div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+							<div>
+								<div class="fw-700">@departure.Route.OriginStation.Name (@departure.Route.OriginStation.City) → @departure.Route.DestinationStation.Name (@departure.Route.DestinationStation.City)</div>
+								<div class="text-muted" style="font-size:0.9rem;">
+									Kalkis: @departure.DepartureTime.ToString("dd.MM.yyyy HH:mm") | Varis: @departure.ArrivalTime.ToString("dd.MM.yyyy HH:mm")
+								</div>
+							</div>
+							<div class="text-end">
+								<div class="fw-700">@departure.Price.ToString("0.00") TL</div>
+								<div class="text-muted" style="font-size:0.85rem;">@departure.AvailableSeats/@departure.TotalSeats koltuk</div>
+								<a asp-controller="Sefer" asp-action="Detay" asp-route-id="@departure.Id" class="btn btn-primary-HamsiBus mt-2">Detay</a>
+							</div>
+						</div>
+					</div>
+				</div>
+			}
+		</div>
+	}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -33,6 +33,17 @@ namespace OtobusBiletRezervasyon.Services
             return MapToTicketResponseDto(ticket);
         }
 
+        public async Task<TicketResponseDto?> GetTicketForUserAsync(int userId, int ticketId)
+        {
+            var ticket = await _ticketRepository.GetByIdWithDetailsAsync(ticketId);
+            if (ticket == null || ticket.UserId != userId)
+            {
+                return null;
+            }
+
+            return MapToTicketResponseDto(ticket);
+        }
+
         public async Task<IEnumerable<TicketResponseDto>> GetUserTicketsAsync(int userId)
         {
             var tickets = await _ticketRepository.GetByUserIdAsync(userId);
@@ -80,7 +91,7 @@ namespace OtobusBiletRezervasyon.Services
                     UserId = userId,
                     DepartureId = createTicketDto.DepartureId,
                     TotalPrice = totalPrice,
-                    Status = TicketStatus.Confirmed
+                    Status = TicketStatus.Pending
                 };
 
                 await _ticketRepository.CreateAsync(ticket);
@@ -113,10 +124,10 @@ namespace OtobusBiletRezervasyon.Services
                 {
                     TicketId = ticket.Id,
                     Amount = createTicketDto.Payment.Amount,
-                    Method = Enum.Parse<PaymentMethod>(createTicketDto.Payment.Method, true),
-                    Status = PaymentStatus.Completed,
+                    Method = ParsePaymentMethod(createTicketDto.Payment.Method),
+                    Status = PaymentStatus.Pending,
                     TransactionId = createTicketDto.Payment.TransactionId,
-                    PaidAt = DateTime.Now
+                    PaidAt = null
                 };
 
                 await _ticketRepository.CreatePaymentAsync(payment);
@@ -190,6 +201,49 @@ namespace OtobusBiletRezervasyon.Services
             }
         }
 
+        public async Task<bool> CompletePaymentAsync(int ticketId, int userId)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var ticket = await _ticketRepository.GetByIdWithDetailsAsync(ticketId);
+                if (ticket == null || ticket.UserId != userId)
+                {
+                    return false;
+                }
+
+                if (ticket.Status == TicketStatus.Cancelled)
+                {
+                    return false;
+                }
+
+                var payment = ticket.Payment ?? await _ticketRepository.GetPaymentByTicketIdAsync(ticketId);
+                if (payment == null)
+                {
+                    return false;
+                }
+
+                if (payment.Status != PaymentStatus.Completed)
+                {
+                    await _ticketRepository.UpdatePaymentStatusAsync(payment.Id, PaymentStatus.Completed);
+                }
+
+                if (ticket.Status != TicketStatus.Confirmed)
+                {
+                    await _ticketRepository.UpdateStatusAsync(ticketId, TicketStatus.Confirmed);
+                }
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
         public async Task<bool> IsSeatAvailableAsync(int departureId, int seatId)
         {
             var seat = await _seatRepository.GetByIdAsync(seatId);
@@ -247,6 +301,28 @@ namespace OtobusBiletRezervasyon.Services
                     PaidAt = ticket.Payment.PaidAt
                 } : null
             };
+        }
+
+        private static PaymentMethod ParsePaymentMethod(string method)
+        {
+            var normalized = NormalizePaymentMethod(method);
+
+            return normalized switch
+            {
+                "creditcard" => PaymentMethod.CreditCard,
+                "debitcard" => PaymentMethod.DebitCard,
+                "paypal" => PaymentMethod.Paypal,
+                _ when Enum.TryParse<PaymentMethod>(normalized, true, out var parsed) => parsed,
+                _ => throw new InvalidOperationException("Unsupported payment method.")
+            };
+        }
+
+        private static string NormalizePaymentMethod(string method)
+        {
+            return new string((method ?? string.Empty)
+                .Where(char.IsLetterOrDigit)
+                .ToArray())
+                .ToLowerInvariant();
         }
     }
 }

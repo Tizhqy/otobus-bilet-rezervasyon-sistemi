@@ -8,6 +8,7 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
         // User Management
         Task<IEnumerable<User>> GetAllUsersAsync();
         Task<User?> GetUserByIdAsync(int id);
+        Task<Role?> GetRoleByIdAsync(int id);
         Task<User> CreateUserAsync(User user, string password);
         Task<User> UpdateUserAsync(User user);
         Task<bool> DeleteUserAsync(int id);

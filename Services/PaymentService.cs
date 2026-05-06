@@ -10,6 +10,7 @@ namespace OtobusBiletRezervasyon.Services
         public bool ValidateCard(string cardNumber, string expiryDate, string cvv)
         {
             cardNumber = cardNumber?.Replace(" ", "").Replace("-", "") ?? "";
+            expiryDate = NormalizeExpiryDate(expiryDate);
 
             // Card number validation (16 digits)
             if (cardNumber.Length != 16 || !cardNumber.All(char.IsDigit))
@@ -49,7 +50,14 @@ namespace OtobusBiletRezervasyon.Services
         /// </summary>
         public bool IsPaymentExpired(DateTime createdAt, int timeoutMinutes)
         {
-            return createdAt.AddMinutes(timeoutMinutes) < DateTime.UtcNow;
+            var createdAtUtc = createdAt.Kind switch
+            {
+                DateTimeKind.Utc => createdAt,
+                DateTimeKind.Local => createdAt.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(createdAt, DateTimeKind.Local).ToUniversalTime()
+            };
+
+            return createdAtUtc.AddMinutes(timeoutMinutes) < DateTime.UtcNow;
         }
 
         /// <summary>
@@ -76,6 +84,14 @@ namespace OtobusBiletRezervasyon.Services
             }
 
             return sum % 10 == 0;
+        }
+
+        private static string NormalizeExpiryDate(string expiryDate)
+        {
+            return (expiryDate ?? string.Empty)
+                .Replace(" ", string.Empty)
+                .Replace("-", "/")
+                .Trim();
         }
     }
 }

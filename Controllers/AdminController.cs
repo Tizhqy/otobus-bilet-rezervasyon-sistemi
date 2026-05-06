@@ -204,6 +204,13 @@ namespace OtobusBiletRezervasyon.Controllers
                 return View(route);
             }
 
+            if (route.OriginStationId == route.DestinationStationId)
+            {
+                ModelState.AddModelError(string.Empty, "Kalkis ve varis istasyonlari ayni olamaz.");
+                ViewBag.Istasyonlar = await _adminService.GetAllStationsAsync();
+                return View(route);
+            }
+
             try
             {
                 await _adminService.UpdateRouteAsync(route);
@@ -358,7 +365,7 @@ namespace OtobusBiletRezervasyon.Controllers
                 return View(departure);
             }
 
-            if (departure.DepartureTime <= DateTime.UtcNow)
+            if (departure.DepartureTime <= DateTime.Now)
             {
                 ModelState.AddModelError(string.Empty, "Kalkis tarihi gecmis olamaz.");
                 ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
@@ -412,6 +419,22 @@ namespace OtobusBiletRezervasyon.Controllers
 
             if (!ModelState.IsValid)
             {
+                ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
+                ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
+                return View(departure);
+            }
+
+            if (departure.DepartureTime <= DateTime.Now)
+            {
+                ModelState.AddModelError(string.Empty, "Kalkis tarihi gecmis olamaz.");
+                ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
+                ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
+                return View(departure);
+            }
+
+            if (departure.ArrivalTime <= departure.DepartureTime)
+            {
+                ModelState.AddModelError(string.Empty, "Varis tarihi kalkis tarihinden sonra olmalidir.");
                 ViewBag.Rotalar = await _adminService.GetAllRoutesAsync();
                 ViewBag.Otobusler = await _adminService.GetAllBusesAsync();
                 return View(departure);
@@ -493,12 +516,19 @@ namespace OtobusBiletRezervasyon.Controllers
                 return RedirectToAction("Kullanicilar");
             }
 
+            var role = await _adminService.GetRoleByIdAsync(roleId);
+            if (role == null)
+            {
+                TempData["Hata"] = "Gecersiz rol secimi.";
+                return RedirectToAction("Kullanicilar");
+            }
+
             user.RoleId = roleId;
 
             try
             {
                 await _adminService.UpdateUserAsync(user);
-                await LogAdminAction("ROL_DEGISTIR", $"Kullanici #{kullaniciId} rolu #{roleId} yapildi");
+                await LogAdminAction("ROL_DEGISTIR", $"Kullanici #{kullaniciId} rolu {role.Name} yapildi");
 
                 TempData["Basari"] = "Rol guncellendi.";
             }
