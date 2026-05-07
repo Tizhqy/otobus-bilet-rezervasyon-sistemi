@@ -111,7 +111,9 @@ Temel tablolar:
 - `password_resets`, `logs`
 - `coupons`, `coupon_usages`
 
-ER diyagrami: `db_semasi_beyaz.svg`
+ER diyagrami:
+
+![ER diyagrami:](/db_semasi_beyaz.svg)
 
 ## Calistirma
 
