@@ -7,7 +7,7 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
 {
     public interface IAdminFlowService
     {
-        Task<AdminDashboardViewModel> GetDashboardAsync(string? depSearch = null, int depPage = 1);
+        Task<AdminDashboardViewModel> GetDashboardAsync(string? depSearch = null, int depPage = 1, int busPage = 1, int routePage = 1);
 
         Task<IEnumerable<Bus>> GetOtobuslerAsync();
         Task<Bus?> GetOtobusByIdAsync(int id);

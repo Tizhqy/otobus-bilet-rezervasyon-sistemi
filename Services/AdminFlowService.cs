@@ -20,13 +20,29 @@ namespace OtobusBiletRezervasyon.Services
             _couponRepository = couponRepository;
         }
 
-        public async Task<AdminDashboardViewModel> GetDashboardAsync(string? depSearch = null, int depPage = 1)
+        public async Task<AdminDashboardViewModel> GetDashboardAsync(string? depSearch = null, int depPage = 1, int busPage = 1, int routePage = 1)
         {
             if (depPage < 1) depPage = 1;
+            if (busPage < 1) busPage = 1;
+            if (routePage < 1) routePage = 1;
 
             var userPage = await _adminService.GetUsersPageAsync(null, 1, 10);
             var allBuses = (await _adminService.GetAllBusesAsync()).ToList();
             var allRoutes = (await _adminService.GetAllRoutesAsync()).ToList();
+
+            // Pagination calculation for Buses (10 per page)
+            int busPageSize = 10;
+            int busesTotalCount = allBuses.Count;
+            int busesTotalPages = Math.Max(1, (int)Math.Ceiling(busesTotalCount / (double)busPageSize));
+            if (busPage > busesTotalPages) busPage = busesTotalPages;
+            var pagedBuses = allBuses.Skip((busPage - 1) * busPageSize).Take(busPageSize).ToList();
+
+            // Pagination calculation for Routes (10 per page)
+            int routePageSize = 10;
+            int routesTotalCount = allRoutes.Count;
+            int routesTotalPages = Math.Max(1, (int)Math.Ceiling(routesTotalCount / (double)routePageSize));
+            if (routePage > routesTotalPages) routePage = routesTotalPages;
+            var pagedRoutes = allRoutes.Skip((routePage - 1) * routePageSize).Take(routePageSize).ToList();
 
             int pageSize = AppConfig.AdminDeparturePageSize;
             var (departures, totalCount) = await _adminService.GetUpcomingDeparturesPageAsync(depSearch, depPage, pageSize);
@@ -37,8 +53,8 @@ namespace OtobusBiletRezervasyon.Services
             {
                 Stats = await _adminService.GetDashboardStatsAsync(),
                 RecentLogs = (await _logService.GetRecentLogsAsync(10)).ToList(),
-                Buses = allBuses.Take(10).ToList(),
-                Routes = allRoutes.Take(10).ToList(),
+                Buses = pagedBuses,
+                Routes = pagedRoutes,
                 Users = userPage.Users.ToList(),
                 UpcomingDepartures = departures.ToList(),
                 RouteOptions = allRoutes
@@ -53,7 +69,13 @@ namespace OtobusBiletRezervasyon.Services
                 DeparturesTotalCount = totalCount,
                 DeparturesCurrentPage = depPage,
                 DeparturesTotalPages = totalPages,
-                DepartureSearchTerm = depSearch
+                DepartureSearchTerm = depSearch,
+                BusesTotalCount = busesTotalCount,
+                BusesCurrentPage = busPage,
+                BusesTotalPages = busesTotalPages,
+                RoutesTotalCount = routesTotalCount,
+                RoutesCurrentPage = routePage,
+                RoutesTotalPages = routesTotalPages
             };
         }
 

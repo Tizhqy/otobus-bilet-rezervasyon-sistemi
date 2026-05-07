@@ -21,9 +21,9 @@ namespace OtobusBiletRezervasyon.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Dashboard(string? depSearch, int depPage = 1)
+        public async Task<IActionResult> Dashboard(string? depSearch, int depPage = 1, int busPage = 1, int routePage = 1)
         {
-            var model = await _adminFlowService.GetDashboardAsync(depSearch, depPage);
+            var model = await _adminFlowService.GetDashboardAsync(depSearch, depPage, busPage, routePage);
             return View(model);
         }
 

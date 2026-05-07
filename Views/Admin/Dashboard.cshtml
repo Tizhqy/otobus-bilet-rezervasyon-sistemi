@@ -340,6 +340,56 @@
                             </tbody>
                         </table>
                     </div>
+                    @if (Model.BusesTotalPages > 1)
+                    {
+                        <div class="p-3 d-flex justify-content-center border-top">
+                            <nav aria-label="Buses pagination">
+                                <ul class="pagination pagination-sm mb-0">
+                                    @if (Model.BusesCurrentPage > 1)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link"
+                                               asp-action="Dashboard" asp-controller="Admin"
+                                               asp-route-depSearch="@Model.DepartureSearchTerm"
+                                               asp-route-depPage="@Model.DeparturesCurrentPage"
+                                               asp-route-routePage="@Model.RoutesCurrentPage"
+                                               asp-route-busPage="@(Model.BusesCurrentPage - 1)">
+                                                &laquo;
+                                            </a>
+                                        </li>
+                                    }
+
+                                    @for (int p = Math.Max(1, Model.BusesCurrentPage - 2); p <= Math.Min(Model.BusesTotalPages, Model.BusesCurrentPage + 2); p++)
+                                    {
+                                        <li class="page-item @(p == Model.BusesCurrentPage ? "active" : "")">
+                                            <a class="page-link"
+                                               asp-action="Dashboard" asp-controller="Admin"
+                                               asp-route-depSearch="@Model.DepartureSearchTerm"
+                                               asp-route-depPage="@Model.DeparturesCurrentPage"
+                                               asp-route-routePage="@Model.RoutesCurrentPage"
+                                               asp-route-busPage="@p">
+                                                @p
+                                            </a>
+                                        </li>
+                                    }
+
+                                    @if (Model.BusesCurrentPage < Model.BusesTotalPages)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link"
+                                               asp-action="Dashboard" asp-controller="Admin"
+                                               asp-route-depSearch="@Model.DepartureSearchTerm"
+                                               asp-route-depPage="@Model.DeparturesCurrentPage"
+                                               asp-route-routePage="@Model.RoutesCurrentPage"
+                                               asp-route-busPage="@(Model.BusesCurrentPage + 1)">
+                                                &raquo;
+                                            </a>
+                                        </li>
+                                    }
+                                </ul>
+                            </nav>
+                        </div>
+                    }
                 </div>
             </div>
 
@@ -381,6 +431,56 @@
                             </tbody>
                         </table>
                     </div>
+                    @if (Model.RoutesTotalPages > 1)
+                    {
+                        <div class="p-3 d-flex justify-content-center border-top">
+                            <nav aria-label="Routes pagination">
+                                <ul class="pagination pagination-sm mb-0">
+                                    @if (Model.RoutesCurrentPage > 1)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link"
+                                               asp-action="Dashboard" asp-controller="Admin"
+                                               asp-route-depSearch="@Model.DepartureSearchTerm"
+                                               asp-route-depPage="@Model.DeparturesCurrentPage"
+                                               asp-route-busPage="@Model.BusesCurrentPage"
+                                               asp-route-routePage="@(Model.RoutesCurrentPage - 1)">
+                                                &laquo;
+                                            </a>
+                                        </li>
+                                    }
+
+                                    @for (int p = Math.Max(1, Model.RoutesCurrentPage - 2); p <= Math.Min(Model.RoutesTotalPages, Model.RoutesCurrentPage + 2); p++)
+                                    {
+                                        <li class="page-item @(p == Model.RoutesCurrentPage ? "active" : "")">
+                                            <a class="page-link"
+                                               asp-action="Dashboard" asp-controller="Admin"
+                                               asp-route-depSearch="@Model.DepartureSearchTerm"
+                                               asp-route-depPage="@Model.DeparturesCurrentPage"
+                                               asp-route-busPage="@Model.BusesCurrentPage"
+                                               asp-route-routePage="@p">
+                                                @p
+                                            </a>
+                                        </li>
+                                    }
+
+                                    @if (Model.RoutesCurrentPage < Model.RoutesTotalPages)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link"
+                                               asp-action="Dashboard" asp-controller="Admin"
+                                               asp-route-depSearch="@Model.DepartureSearchTerm"
+                                               asp-route-depPage="@Model.DeparturesCurrentPage"
+                                               asp-route-busPage="@Model.BusesCurrentPage"
+                                               asp-route-routePage="@(Model.RoutesCurrentPage + 1)">
+                                                &raquo;
+                                            </a>
+                                        </li>
+                                    }
+                                </ul>
+                            </nav>
+                        </div>
+                    }
                 </div>
             </div>
 

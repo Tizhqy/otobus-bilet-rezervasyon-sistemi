@@ -19,6 +19,16 @@ namespace OtobusBiletRezervasyon.DTOs.ViewModels
         public int DeparturesCurrentPage { get; set; } = 1;
         public int DeparturesTotalPages { get; set; } = 1;
         public string? DepartureSearchTerm { get; set; }
+
+        // Pagination for Buses
+        public int BusesTotalCount { get; set; }
+        public int BusesCurrentPage { get; set; } = 1;
+        public int BusesTotalPages { get; set; } = 1;
+
+        // Pagination for Routes
+        public int RoutesTotalCount { get; set; }
+        public int RoutesCurrentPage { get; set; } = 1;
+        public int RoutesTotalPages { get; set; } = 1;
     }
 }
 
