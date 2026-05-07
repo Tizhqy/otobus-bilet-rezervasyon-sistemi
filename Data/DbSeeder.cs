@@ -95,6 +95,15 @@ namespace OtobusBiletRezervasyon
                     new Bus { PlateNumber = "26 HB 010", Type = "2+1", Capacity = 42, IsActive = true },
                     new Bus { PlateNumber = "06 HB 011", Type = "1+1", Capacity = 24, IsActive = true },
                     new Bus { PlateNumber = "41 HB 012", Type = "2+1", Capacity = 33, IsActive = true },
+                    // Eklenen yeni otobusler
+                    new Bus { PlateNumber = "55 HB 013", Type = "2+2", Capacity = 48, IsActive = true },
+                    new Bus { PlateNumber = "61 HB 014", Type = "2+1", Capacity = 42, IsActive = true },
+                    new Bus { PlateNumber = "34 HB 015", Type = "1+1", Capacity = 24, IsActive = true },
+                    new Bus { PlateNumber = "06 HB 016", Type = "2+1", Capacity = 33, IsActive = true },
+                    new Bus { PlateNumber = "07 HB 017", Type = "2+2", Capacity = 48, IsActive = true },
+                    new Bus { PlateNumber = "53 HB 018", Type = "2+1", Capacity = 42, IsActive = true },
+                    new Bus { PlateNumber = "16 HB 019", Type = "2+2", Capacity = 48, IsActive = true },
+                    new Bus { PlateNumber = "35 HB 020", Type = "2+1", Capacity = 33, IsActive = true },
                 };
                 db.Buses.AddRange(buses);
                 await db.SaveChangesAsync();
@@ -108,18 +117,32 @@ namespace OtobusBiletRezervasyon
                 var ankara = await db.Stations.FirstAsync(s => s.City == "Ankara");
                 var izmir = await db.Stations.FirstAsync(s => s.City == "Izmir");
                 var antalya = await db.Stations.FirstAsync(s => s.City == "Antalya");
+                var bursa = await db.Stations.FirstAsync(s => s.City == "Bursa");
                 var samsun = await db.Stations.FirstAsync(s => s.City == "Samsun");
+                var rize = await db.Stations.FirstAsync(s => s.City == "Rize");
 
-                var routes = new[]
+                var routePairs = new[]
                 {
-                    new Route { OriginStationId = trabzon.Id, DestinationStationId = istanbul.Id, DistanceKm = 1070, DurationMinutes = 780, IsActive = true },
-                    new Route { OriginStationId = istanbul.Id, DestinationStationId = trabzon.Id, DistanceKm = 1070, DurationMinutes = 780, IsActive = true },
-                    new Route { OriginStationId = trabzon.Id, DestinationStationId = ankara.Id, DistanceKm = 780, DurationMinutes = 600, IsActive = true },
-                    new Route { OriginStationId = ankara.Id, DestinationStationId = istanbul.Id, DistanceKm = 450, DurationMinutes = 360, IsActive = true },
-                    new Route { OriginStationId = istanbul.Id, DestinationStationId = izmir.Id, DistanceKm = 480, DurationMinutes = 330, IsActive = true },
-                    new Route { OriginStationId = ankara.Id, DestinationStationId = antalya.Id, DistanceKm = 550, DurationMinutes = 420, IsActive = true },
-                    new Route { OriginStationId = trabzon.Id, DestinationStationId = samsun.Id, DistanceKm = 340, DurationMinutes = 240, IsActive = true },
+                    (trabzon, istanbul, 1070, 780),
+                    (trabzon, ankara, 780, 600),
+                    (ankara, istanbul, 450, 360),
+                    (istanbul, izmir, 480, 330),
+                    (ankara, antalya, 550, 420),
+                    (trabzon, samsun, 340, 240),
+                    (rize, trabzon, 80, 90),
+                    (istanbul, bursa, 150, 120),
+                    (bursa, izmir, 330, 240),
+                    (ankara, bursa, 390, 300)
                 };
+
+                var routes = new List<Route>();
+                foreach (var (origin, dest, dist, dur) in routePairs)
+                {
+                    // Cift yonlu rota ekleme
+                    routes.Add(new Route { OriginStationId = origin.Id, DestinationStationId = dest.Id, DistanceKm = dist, DurationMinutes = dur, IsActive = true });
+                    routes.Add(new Route { OriginStationId = dest.Id, DestinationStationId = origin.Id, DistanceKm = dist, DurationMinutes = dur, IsActive = true });
+                }
+
                 db.Routes.AddRange(routes);
                 await db.SaveChangesAsync();
             }
@@ -139,7 +162,8 @@ namespace OtobusBiletRezervasyon
                 {
                     new Coupon { Code = "HAMSIDEV20", DiscountAmount = 20, DiscountType = "Percentage", IsActive = true, ValidUntil = DateTime.UtcNow.AddMonths(1) },
                     new Coupon { Code = "OGRENCI10", DiscountAmount = 10, DiscountType = "Percentage", IsActive = true, ValidUntil = DateTime.UtcNow.AddMonths(1) },
-                    new Coupon { Code = "SABIT50", DiscountAmount = 50, DiscountType = "Fixed", IsActive = true, ValidUntil = DateTime.UtcNow.AddMonths(1) }
+                    new Coupon { Code = "SABIT50", DiscountAmount = 50, DiscountType = "Fixed", IsActive = true, ValidUntil = DateTime.UtcNow.AddMonths(1) },
+                    new Coupon { Code = "HOSGELDIN100", DiscountAmount = 100, DiscountType = "Fixed", IsActive = true, ValidUntil = DateTime.UtcNow.AddMonths(1) }
                 };
                 db.Coupons.AddRange(coupons);
                 await db.SaveChangesAsync();
