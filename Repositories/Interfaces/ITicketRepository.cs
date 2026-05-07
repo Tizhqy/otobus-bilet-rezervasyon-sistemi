@@ -18,6 +18,7 @@ namespace OtobusBiletRezervasyon.Repositories.Interfaces
         // Passenger
         Task<Passenger> CreatePassengerAsync(Passenger passenger);
         Task<IEnumerable<Passenger>> GetPassengersByTicketIdAsync(int ticketId);
+        Task DeletePassengersAsync(IEnumerable<Passenger> passengers);
 
         // Payment
         Task<Payment> CreatePaymentAsync(Payment payment);

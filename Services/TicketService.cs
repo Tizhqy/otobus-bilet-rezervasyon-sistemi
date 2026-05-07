@@ -11,15 +11,18 @@ namespace OtobusBiletRezervasyon.Services
         private readonly ITicketRepository _ticketRepository;
         private readonly ISeatRepository _seatRepository;
         private readonly IDepartureRepository _departureRepository;
+        private readonly ILogService _logService;
 
         public TicketService(
             ITicketRepository ticketRepository,
             ISeatRepository seatRepository,
-            IDepartureRepository departureRepository)
+            IDepartureRepository departureRepository,
+            ILogService logService)
         {
             _ticketRepository = ticketRepository;
             _seatRepository = seatRepository;
             _departureRepository = departureRepository;
+            _logService = logService;
         }
 
         public async Task<TicketResponseDto?> GetTicketByIdAsync(int ticketId)
@@ -160,10 +163,22 @@ namespace OtobusBiletRezervasyon.Services
                     return false;
                 }
 
+                // Build passenger details for logging before deleting
+                var passengerDetails = string.Join(", ", ticket.Passengers.Select(p => $"{p.FirstName} {p.LastName} (Seat ID: {p.SeatId})"));
+
+                // Log passenger details for auditing (IP address will be recorded by BiletFlowService/OdemeFlowService logs separately)
+                await _logService.LogAsync(userId, "TICKET_CANCEL_PASSENGERS", $"Ticket #{ticketId} cancelled. Passengers removed: {passengerDetails}");
+
                 // Release all seats
                 foreach (var passenger in ticket.Passengers)
                 {
                     await _seatRepository.ReleaseSeatAsync(passenger.SeatId);
+                }
+
+                // Delete the passenger records to avoid unique constraint violations on re-booking the same seat
+                if (ticket.Passengers.Any())
+                {
+                    await _ticketRepository.DeletePassengersAsync(ticket.Passengers);
                 }
 
                 // Update ticket status

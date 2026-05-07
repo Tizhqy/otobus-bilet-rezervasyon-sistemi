@@ -135,6 +135,12 @@ namespace OtobusBiletRezervasyon.Repositories
                 .ToListAsync();
         }
 
+        public async Task DeletePassengersAsync(IEnumerable<Passenger> passengers)
+        {
+            _context.Passengers.RemoveRange(passengers);
+            await _context.SaveChangesAsync();
+        }
+
         // Payment
         public async Task<Payment> CreatePaymentAsync(Payment payment)
         {
