@@ -243,7 +243,8 @@ namespace OtobusBiletRezervasyon.Services
             var user = await _userRepository.GetByEmailAsync(email);
             if (user == null)
             {
-                await Task.Delay(150);
+                var delay = Random.Shared.Next(2000, 4000);
+                await Task.Delay(delay);
                 return true;
             }
 
