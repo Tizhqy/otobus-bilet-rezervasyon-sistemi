@@ -1,0 +1,102 @@
+/////
+tüm projeyi taradığına emin misin controllerlar falan ekisk derken hani logic olur veya gücenlik olur transactionda sıkınıt olur db de sıkıntı olur falan tekrar subagnet ile tara tüm projeyi contorll ervice dbseeder migrationsflan
+
+Tarama tamam; controller, service, repository, middleware, DbSeeder ve migrations dahil genel mantik/guvenlik/veri tutarliligi riskleri asagida. Bulgular oncelik sirasiyla:
+
+Critical
+
+Kupon kullanimi race condition: kullanildi mi kontrolu + insert atomik degil, es zamanli isteklerde ayni kupon ayni kullanici icin iki kez yazilabilir. CouponRepository.cs:62-72
+Koltuk rezervasyonunda double‑book riski: musaitlik kontrolu ile koltuk kilitleme ayri adimlar; arada baska istek koltugu kapatabilir. SeatRepository.cs:63-71
+Odeme/kupon akisi atomik degil: kupon uygulama/geri alma adimlari tam transaction korumasi olmadan ilerliyor, yarim kalan odemede fiyat tutarsizligi riski var. OdemeFlowService.cs:62-72, OdemeFlowService.cs:164-168
+High
+
+Rol degistirmede roleId dogrulamasi yok; olmayan rol ID atanabilir. AdminFlowService.cs:515-529
+Koltuk musaitlik endpointleri authsiz; herkese acik koltuk envanteri cikartilabilir. SeferController.cs:89-94
+Idempotency ile kupon/odeme tekrar denemeleri tam kilitlenmiyor; ayni odemede kupon tekrar uygulanma riski. OdemeFlowService.cs:130-148
+Medium
+
+Admin kendini pasife cekse bile aktif session bitene kadar devam edebilir. AdminFlowService.cs:531-539
+Password reset rate limit degerleri sadece config’e bagli; yanlis ayarda brute‑force/enum riski. Program.cs:163
+Bilet iptalinde yolcu detaylari sadece ozet log, ayrintili audit izi yok. TicketService.cs:168-200
+Low / Info
+
+Seed user’larda sabit parolalar var; prod’da acik kalirsa risk. DbSeeder.cs:32-40
+Gecici rezervasyon temizligi icin planli job gorunmuyor; tablo sisme riski. TemporaryReservationRepository.cs:55-64
+Yolcu kimlik numarasi opsiyonel, servis katmaninda zorunluluk yok. CreateTicketDto.cs:26
+Acik noktalar / varsayimlar
+
+Gercek odeme gateway entegrasyonu ve SMTP guvenligi kodda tam gorunmuyor; calisma zamaninda onay gerekir.
+Rate limit degerleri ve production config ayarlari appsettings uzerinden dogrulanmali. appsettings.json
+Istersen en kritik 3 konuyu (kupon race, koltuk race, odeme/kupon atomiklik) once fixleyeyim.
+
+Kupon kullanimini unique constraint + transaction/try‑catch ile guvenceye alma
+Koltuk rezervasyonunu tek transaction/row‑version ile atomik kilitleme
+Odeme/kupon akisini tek transaction icinde toparlama
+
+Kupon kullanimi race condition: kullanildi mi kontrolu + insert atomik degil, es zamanli isteklerde ayni kupon ayni kullanici icin iki kez yazilabilir.
+
+simid ayni kuponu bir kez kulladnıtkan sonra daha kullanamayion onu biliyom da üsts üte kullanmayı denemedim
+
+Koltuk rezervasyonunda double‑book riski: musaitlik kontrolu ile koltuk kilitleme ayri adimlar; arada baska istek koltugu kapatabilir
+
+burda trasncation ile falan bunu yapmistim diye hatirliyorum
+
+Odeme/kupon akisi atomik degil: kupon uygulama/geri alma adimlari tam transaction korumasi olmadan ilerliyor, yarim kalan odemede fiyat tutarsizligi riski var.
+olur bu da herhalde
+--
+Rol degistirmede roleId dogrulamasi yok; olmayan rol ID atanabilir
+rol degistrimeden kasit ne onu anlamadim 999 yazma gibi mi?
+
+Koltuk musaitlik endpointleri authsiz; herkese acik koltuk envanteri cikartilabilir.
+
+bunu da bilmiom
+
+Idempotency ile kupon/odeme tekrar denemeleri tam kilitlenmiyor; ayni odemede kupon tekrar uygulanma riski.
+
+uste soyledigim ile ayni degil mi bu
+---
+Password reset rate limit degerleri sadece config’e bagli; yanlis ayarda brute‑force/enum riski.
+rate limt te nasil brute forca olcak k
+
+Kisa cevaplarla netlestireyim, sonra “kesin yapalim” listesi:
+
+Sorularina yanitlar
+
+Kupon race: Tek sefer kullanimda sorun gormezsin; sorun ayni kuponun es zamanli iki istekle uygulanmasinda cikiyor. Veritabaninda (user_id, coupon_id) unique ise bile ikinci istek exception alir; uygulama bunu yakalamazsa kullanici hata gorur.
+Koltuk race: Transaction varsa bile musaitlik kontrolu + rezerve iki farkli adimsa arada baska istek koltugu kapabilir. Bunu “tek update + etkilenen satir sayisi kontrolu” ile garanti etmek gerekir.
+RoleId dogrulama: Evet, 999 gibi olmayan bir rol id’si girilirse kayit bozulabilir veya hata cikabilir. Bu sadece basit bir “role var mi?” kontrolu ile duzelir.
+Koltuk musaitlik endpointi: Authsiz ise herkes envanteri gorebilir. Bu bir “gizlilik/rate-limit” karari; kritik degil ama kolay fix.
+Idempotency vs kupon race: Ayni degil. Kupon race = ayni kupon ayni anda 2 istek. Idempotency sorunu = ayni odeme tekrar denendiginde kupon yeniden uygulanabilir.
+Password reset rate limit: Limit yuksekse veya sadece IP bazliysa attacker email flood veya hesap enumerasyonu yapabilir. Mesela “bu email yok” gibi farkli cevaplar da yardim eder.
+Kesin yapalim (az efor, net kazanc)
+Koltuk rezervasyonu atomik hale getirme
+Musaitlik kontrolunu ayri yapmayip, “UPDATE … WHERE status=available” ile tek adimda kapatma + etkilenen satir sayisi kontrolu.
+Kupon kullaniminda unique’e guvenip exception yakalama
+“Once kontrol et sonra insert” yerine direkt insert + unique hatasini yakalayip “daha once kullanildi” donmek.
+RoleId dogrulama
+Admin rol degistirirken girilen roleId’nin db’de varligini kontrol et.
+Istege bagli (istersen)
+Koltuk musaitlik endpointlerine auth veya rate limit eklemek
+Password reset’te tek tip cevap + email/IP rate limit
+Istersen ben bunlardan 1‑3’u hemen kodlayayim.
+Hangileriyle baslayalim?
+
+Koltuk rezervasyon atomik
+Kupon usage fix
+RoleId dogrulama
+Hepsi
+
+1. i yapalim eyw ama mevcut akışı tamamen öğrenmemi mvc ve soca uygun yapman istiyiroum tama mmı bak sakın bozma teslim tarihne az kaldı bir daha didik didik te neyi yanlış yaptın diye arayamam, en son orada şöyle bir sıkıntı vardı bilet iptal edilince kayıt db de kalıyordu onu düzeltmiştim onu hatırlıyorum onun dışında atomik diye hatlrıyorudm değilmiş demekki neyse bu dediklerimi tüm işlemelrin için aklıdna tut, başarısızlık kabul edilemez
+sonra 
+Kupon kullaniminda unique’e guvenip exception yakalama
+“Once kontrol et sonra insert” yerine direkt insert + unique hatasini yakalayip “daha once kullanildi” donmek.
+günceli de kötü değildi sanki ama yani ne diyim ki bozma sadece kodları harbi çok uğraştım 
+
+RoleId dogrulama
+Admin rol degistirirken girilen roleId’nin db’de varligini kontrol et.
+
+bunlari yap
+
+/////
+
+///// arasinda onceki chatimi attim sana bu değişiklikleri güncel yapıyı bozmadan eklemeni istiyorum, 2. sınıf projesi olduğu için çok üstüne durmak istemesemde ne olur ne olmaz, mvc ve soca uygun olarak yapman lazım ve sakın güncel akışı anlamadan uygulamaya koyma, sakın. Teslim tarihi yakın extra oalrak üstünde fazladan düşecek zamanım yok bunlar son eklemeler.

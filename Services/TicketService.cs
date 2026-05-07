@@ -91,17 +91,16 @@ namespace OtobusBiletRezervasyon.Services
 
                 await _ticketRepository.CreateAsync(ticket);
 
-                // Book seats and create passengers
+                // Book all seats atomically — prevents race conditions between concurrent requests
+                var allBooked = await _seatRepository.BookSeatsAtomicAsync(seatIds, createTicketDto.DepartureId);
+                if (!allBooked)
+                {
+                    throw new InvalidOperationException("One or more selected seats are no longer available.");
+                }
+
+                // Create passengers
                 foreach (var passengerDto in createTicketDto.Passengers)
                 {
-                    // Book the seat
-                    var booked = await _seatRepository.BookSeatAsync(passengerDto.SeatId, createTicketDto.DepartureId);
-                    if (!booked)
-                    {
-                        throw new InvalidOperationException($"Failed to book seat {passengerDto.SeatId}.");
-                    }
-
-                    // Create passenger
                     var passenger = new Passenger
                     {
                         TicketId = ticket.Id,

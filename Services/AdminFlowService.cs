@@ -521,6 +521,10 @@ namespace OtobusBiletRezervasyon.Services
             if (user == null)
                 return ServiceResult.Fail(ServiceResultType.NotFound, "User not found.");
 
+            var roleExists = await _adminService.RoleExistsAsync(roleId);
+            if (!roleExists)
+                return ServiceResult.Fail(ServiceResultType.ValidationError, "Invalid role.");
+
             user.RoleId = roleId;
             await _adminService.UpdateUserAsync(user);
             await _logService.LogAdminActionAsync(adminId, "ROL_DEGISTIR", $"User #{kullaniciId} role set to #{roleId}", ipAddress);

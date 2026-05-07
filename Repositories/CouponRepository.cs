@@ -61,20 +61,25 @@ namespace OtobusBiletRezervasyon.Repositories
 
         public async Task RecordCouponUsageAsync(int userId, int couponId)
         {
-            var alreadyUsed = await _context.CouponUsages
-                .AnyAsync(cu => cu.UserId == userId && cu.CouponId == couponId);
-            if (alreadyUsed)
-                return;
-
             var usage = new CouponUsage
             {
                 UserId = userId,
                 CouponId = couponId,
                 UsedAt = DateTime.UtcNow
             };
-            
+
             _context.CouponUsages.Add(usage);
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Unique constraint violation — kullanıcı bu kuponu zaten kullanmış.
+                // Sessizce geç, çünkü amaç "bir kez kullanılsın" ve bu zaten sağlanmış.
+                _context.Entry(usage).State = EntityState.Detached;
+            }
         }
     }
 }

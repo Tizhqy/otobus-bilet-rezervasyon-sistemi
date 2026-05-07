@@ -69,6 +69,11 @@ namespace OtobusBiletRezervasyon.Services
             return true;
         }
 
+        public async Task<bool> RoleExistsAsync(int roleId)
+        {
+            return await _context.Roles.AnyAsync(r => r.Id == roleId);
+        }
+
         // Bus Management
         public async Task<IEnumerable<Bus>> GetAllBusesAsync()
         {

@@ -12,6 +12,7 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
         Task<User> UpdateUserAsync(User user);
         Task<bool> DeleteUserAsync(int id);
         Task<bool> ToggleUserStatusAsync(int id);
+        Task<bool> RoleExistsAsync(int roleId);
 
         // Bus Management
         Task<IEnumerable<Bus>> GetAllBusesAsync();
