@@ -20,11 +20,18 @@ namespace OtobusBiletRezervasyon.Services
             _couponRepository = couponRepository;
         }
 
-        public async Task<AdminDashboardViewModel> GetDashboardAsync()
+        public async Task<AdminDashboardViewModel> GetDashboardAsync(string? depSearch = null, int depPage = 1)
         {
+            if (depPage < 1) depPage = 1;
+
             var userPage = await _adminService.GetUsersPageAsync(null, 1, 10);
             var allBuses = (await _adminService.GetAllBusesAsync()).ToList();
             var allRoutes = (await _adminService.GetAllRoutesAsync()).ToList();
+
+            int pageSize = AppConfig.AdminDeparturePageSize;
+            var (departures, totalCount) = await _adminService.GetUpcomingDeparturesPageAsync(depSearch, depPage, pageSize);
+            int totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+            if (depPage > totalPages) depPage = totalPages;
 
             return new AdminDashboardViewModel
             {
@@ -33,7 +40,7 @@ namespace OtobusBiletRezervasyon.Services
                 Buses = allBuses.Take(10).ToList(),
                 Routes = allRoutes.Take(10).ToList(),
                 Users = userPage.Users.ToList(),
-                UpcomingDepartures = (await _adminService.GetUpcomingDeparturesAsync(100)).ToList(),
+                UpcomingDepartures = departures.ToList(),
                 RouteOptions = allRoutes
                     .Where(r => r.IsActive)
                     .OrderBy(r => r.OriginStation?.City ?? r.OriginStation?.Name ?? string.Empty)
@@ -42,7 +49,11 @@ namespace OtobusBiletRezervasyon.Services
                 BusOptions = allBuses
                     .Where(b => b.IsActive)
                     .OrderBy(b => b.PlateNumber)
-                    .ToList()
+                    .ToList(),
+                DeparturesTotalCount = totalCount,
+                DeparturesCurrentPage = depPage,
+                DeparturesTotalPages = totalPages,
+                DepartureSearchTerm = depSearch
             };
         }
 
@@ -69,8 +80,8 @@ namespace OtobusBiletRezervasyon.Services
                 };
 
                 await _adminService.CreateBusAsync(bus);
-                await _logService.LogAdminActionAsync(adminId, "OTOBUS_EKLE", $"Otobus eklendi: {bus.PlateNumber}", ipAddress);
-                return ServiceResult.Ok("Otobus eklendi.");
+                await _logService.LogAdminActionAsync(adminId, "OTOBUS_EKLE", $"Bus added: {bus.PlateNumber}", ipAddress);
+                return ServiceResult.Ok("Bus added.");
             }
             catch (InvalidOperationException ex)
             {
@@ -82,7 +93,7 @@ namespace OtobusBiletRezervasyon.Services
         {
             var existing = await _adminService.GetBusByIdAsync(id);
             if (existing == null)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Otobus bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Bus not found.");
 
             try
             {
@@ -92,8 +103,8 @@ namespace OtobusBiletRezervasyon.Services
                 existing.IsActive = dto.IsActive;
 
                 await _adminService.UpdateBusAsync(existing);
-                await _logService.LogAdminActionAsync(adminId, "OTOBUS_DUZENLE", $"Otobus guncellendi: {existing.PlateNumber}", ipAddress);
-                return ServiceResult.Ok("Otobus guncellendi.");
+                await _logService.LogAdminActionAsync(adminId, "OTOBUS_DUZENLE", $"Bus updated: {existing.PlateNumber}", ipAddress);
+                return ServiceResult.Ok("Bus updated.");
             }
             catch (InvalidOperationException ex)
             {
@@ -105,14 +116,14 @@ namespace OtobusBiletRezervasyon.Services
         {
             var bus = await _adminService.GetBusByIdAsync(id);
             if (bus == null)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Otobus bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Bus not found.");
 
             var toggled = await _adminService.ToggleBusStatusAsync(id);
             if (!toggled)
-                return ServiceResult.Fail(ServiceResultType.Error, "Otobus durumu degistirilemedi.");
+                return ServiceResult.Fail(ServiceResultType.Error, "Failed to change bus status.");
 
-            await _logService.LogAdminActionAsync(adminId, "OTOBUS_DURUM", $"Otobus durumu degistirildi: {bus.PlateNumber}", ipAddress);
-            return ServiceResult.Ok("Otobus durumu degistirildi.");
+            await _logService.LogAdminActionAsync(adminId, "OTOBUS_DURUM", $"Bus status changed: {bus.PlateNumber}", ipAddress);
+            return ServiceResult.Ok("Bus status changed.");
         }
 
         public Task<IEnumerable<Route>> GetRotalarAsync()
@@ -136,7 +147,7 @@ namespace OtobusBiletRezervasyon.Services
             {
                 return ServiceResult.Fail(
                     ServiceResultType.ValidationError,
-                    "Kalkis ve varis istasyonlari ayni olamaz.");
+                    "Origin and destination stations cannot be the same.");
             }
 
             try
@@ -151,8 +162,8 @@ namespace OtobusBiletRezervasyon.Services
                 };
 
                 await _adminService.CreateRouteAsync(route);
-                await _logService.LogAdminActionAsync(adminId, "ROTA_EKLE", $"Rota #{route.Id} eklendi", ipAddress);
-                return ServiceResult.Ok("Rota eklendi.");
+                await _logService.LogAdminActionAsync(adminId, "ROTA_EKLE", $"Route #{route.Id} added", ipAddress);
+                return ServiceResult.Ok("Route added.");
             }
             catch (InvalidOperationException ex)
             {
@@ -166,12 +177,12 @@ namespace OtobusBiletRezervasyon.Services
             {
                 return ServiceResult.Fail(
                     ServiceResultType.ValidationError,
-                    "Kalkis ve varis istasyonlari ayni olamaz.");
+                    "Origin and destination stations cannot be the same.");
             }
 
             var existing = await _adminService.GetRouteByIdAsync(id);
             if (existing == null)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Rota bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Route not found.");
 
             try
             {
@@ -182,8 +193,8 @@ namespace OtobusBiletRezervasyon.Services
                 existing.IsActive = dto.IsActive;
 
                 await _adminService.UpdateRouteAsync(existing);
-                await _logService.LogAdminActionAsync(adminId, "ROTA_DUZENLE", $"Rota #{id} guncellendi", ipAddress);
-                return ServiceResult.Ok("Rota guncellendi.");
+                await _logService.LogAdminActionAsync(adminId, "ROTA_DUZENLE", $"Route #{id} updated", ipAddress);
+                return ServiceResult.Ok("Route updated.");
             }
             catch (InvalidOperationException ex)
             {
@@ -195,10 +206,10 @@ namespace OtobusBiletRezervasyon.Services
         {
             var toggled = await _adminService.ToggleRouteStatusAsync(id);
             if (!toggled)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Rota bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Route not found.");
 
-            await _logService.LogAdminActionAsync(adminId, "ROTA_DURUM", $"Rota #{id} durumu degistirildi", ipAddress);
-            return ServiceResult.Ok("Rota durumu degistirildi.");
+            await _logService.LogAdminActionAsync(adminId, "ROTA_DURUM", $"Route #{id} status changed", ipAddress);
+            return ServiceResult.Ok("Route status changed.");
         }
 
         public Task<IEnumerable<Station>> GetIstasyonlarAsync()
@@ -224,8 +235,8 @@ namespace OtobusBiletRezervasyon.Services
                 };
 
                 await _adminService.CreateStationAsync(station);
-                await _logService.LogAdminActionAsync(adminId, "ISTASYON_EKLE", $"Istasyon eklendi: {station.Name}, {station.City}", ipAddress);
-                return ServiceResult.Ok("Istasyon eklendi.");
+                await _logService.LogAdminActionAsync(adminId, "ISTASYON_EKLE", $"Station added: {station.Name}, {station.City}", ipAddress);
+                return ServiceResult.Ok("Station added.");
             }
             catch (InvalidOperationException ex)
             {
@@ -237,7 +248,7 @@ namespace OtobusBiletRezervasyon.Services
         {
             var existing = await _adminService.GetStationByIdAsync(id);
             if (existing == null)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Istasyon bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Station not found.");
 
             try
             {
@@ -247,8 +258,8 @@ namespace OtobusBiletRezervasyon.Services
                 existing.IsActive = dto.IsActive;
 
                 await _adminService.UpdateStationAsync(existing);
-                await _logService.LogAdminActionAsync(adminId, "ISTASYON_DUZENLE", $"Istasyon #{id} guncellendi", ipAddress);
-                return ServiceResult.Ok("Istasyon guncellendi.");
+                await _logService.LogAdminActionAsync(adminId, "ISTASYON_DUZENLE", $"Station #{id} updated", ipAddress);
+                return ServiceResult.Ok("Station updated.");
             }
             catch (InvalidOperationException ex)
             {
@@ -260,10 +271,10 @@ namespace OtobusBiletRezervasyon.Services
         {
             var toggled = await _adminService.ToggleStationStatusAsync(id);
             if (!toggled)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Istasyon bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Station not found.");
 
-            await _logService.LogAdminActionAsync(adminId, "ISTASYON_DURUM", $"Istasyon #{id} durumu degistirildi", ipAddress);
-            return ServiceResult.Ok("Istasyon durumu degistirildi.");
+            await _logService.LogAdminActionAsync(adminId, "ISTASYON_DURUM", $"Station #{id} status changed", ipAddress);
+            return ServiceResult.Ok("Station status changed.");
         }
 
         public Task<IEnumerable<Departure>> GetSeferlerAsync()
@@ -302,8 +313,8 @@ namespace OtobusBiletRezervasyon.Services
             try
             {
                 var created = await _adminService.CreateDepartureAsync(departure);
-                await _logService.LogAdminActionAsync(adminId, "SEFER_EKLE", $"Sefer #{created.Id} eklendi", ipAddress);
-                return ServiceResult.Ok("Sefer eklendi.");
+                await _logService.LogAdminActionAsync(adminId, "SEFER_EKLE", $"Departure #{created.Id} added", ipAddress);
+                return ServiceResult.Ok("Departure added.");
             }
             catch (InvalidOperationException ex)
             {
@@ -315,7 +326,7 @@ namespace OtobusBiletRezervasyon.Services
         {
             var existing = await _adminService.GetDepartureByIdAsync(id);
             if (existing == null)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Departure not found.");
 
             existing.RouteId = dto.RouteId;
             existing.BusId = dto.BusId;
@@ -331,8 +342,8 @@ namespace OtobusBiletRezervasyon.Services
             try
             {
                 await _adminService.UpdateDepartureAsync(existing);
-                await _logService.LogAdminActionAsync(adminId, "SEFER_DUZENLE", $"Sefer #{id} guncellendi", ipAddress);
-                return ServiceResult.Ok("Sefer guncellendi.");
+                await _logService.LogAdminActionAsync(adminId, "SEFER_DUZENLE", $"Departure #{id} updated", ipAddress);
+                return ServiceResult.Ok("Departure updated.");
             }
             catch (InvalidOperationException ex)
             {
@@ -344,10 +355,10 @@ namespace OtobusBiletRezervasyon.Services
         {
             var toggled = await _adminService.ToggleDepartureStatusAsync(id);
             if (!toggled)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Departure not found.");
 
-            await _logService.LogAdminActionAsync(adminId, "SEFER_DURUM", $"Sefer #{id} durumu degistirildi", ipAddress);
-            return ServiceResult.Ok("Sefer durumu degistirildi.");
+            await _logService.LogAdminActionAsync(adminId, "SEFER_DURUM", $"Departure #{id} status changed", ipAddress);
+            return ServiceResult.Ok("Departure status changed.");
         }
 
         public async Task<ServiceResult> SeferFiyatGuncelleAsync(
@@ -356,13 +367,13 @@ namespace OtobusBiletRezervasyon.Services
             string ipAddress)
         {
             if (request.DepartureId <= 0)
-                return ServiceResult.Fail(ServiceResultType.ValidationError, "Gecersiz sefer secimi.");
+                return ServiceResult.Fail(ServiceResultType.ValidationError, "Invalid departure selection.");
 
             if (!AdminPriceInputParser.TryParseDecimalFlexible(request.NewPrice, out var parsedPrice) || parsedPrice <= 0m)
-                return ServiceResult.Fail(ServiceResultType.ValidationError, "Fiyat 0'dan buyuk olmalidir.");
+                return ServiceResult.Fail(ServiceResultType.ValidationError, "Price must be greater than 0.");
 
             if (parsedPrice > 999999.99m)
-                return ServiceResult.Fail(ServiceResultType.ValidationError, "Fiyat 999999.99'dan buyuk olamaz.");
+                return ServiceResult.Fail(ServiceResultType.ValidationError, "Price cannot be greater than 999999.99.");
 
             try
             {
@@ -370,9 +381,9 @@ namespace OtobusBiletRezervasyon.Services
                 await _logService.LogAdminActionAsync(
                     adminId,
                     "SEFER_FIYAT_DUZENLE",
-                    $"Sefer #{updated.Id} fiyati {updated.Price:0.00} olarak guncellendi.",
+                    $"Departure #{updated.Id} price updated to {updated.Price:0.00}.",
                     ipAddress);
-                return ServiceResult.Ok("Sefer fiyati guncellendi.");
+                return ServiceResult.Ok("Departure price updated.");
             }
             catch (InvalidOperationException ex)
             {
@@ -389,7 +400,7 @@ namespace OtobusBiletRezervasyon.Services
             {
                 return ServiceResult.Fail(
                     ServiceResultType.ValidationError,
-                    "Bitis tarihi, baslangic tarihinden once olamaz.");
+                    "End date cannot be before start date.");
             }
 
             var useMultiplier = request.Mode == AdminBulkPriceUpdateMode.Multiply;
@@ -399,22 +410,22 @@ namespace OtobusBiletRezervasyon.Services
                 return ServiceResult.Fail(
                     ServiceResultType.ValidationError,
                     useMultiplier
-                        ? "Toplu guncelleme icin gecerli bir carpan giriniz."
-                        : "Toplu guncelleme icin gecerli bir sabit fiyat giriniz.");
+                        ? "Please enter a valid multiplier for bulk update."
+                        : "Please enter a valid fixed price for bulk update.");
             }
 
             if (useMultiplier && parsedValue > 10m)
             {
                 return ServiceResult.Fail(
                     ServiceResultType.ValidationError,
-                    "Toplu carpan 10'dan buyuk olamaz.");
+                    "Bulk multiplier cannot be greater than 10.");
             }
 
             if (!useMultiplier && parsedValue > 999999.99m)
             {
                 return ServiceResult.Fail(
                     ServiceResultType.ValidationError,
-                    "Sabit fiyat 999999.99'dan buyuk olamaz.");
+                    "Fixed price cannot be greater than 999999.99.");
             }
 
             try
@@ -431,7 +442,7 @@ namespace OtobusBiletRezervasyon.Services
                 {
                     return ServiceResult.Fail(
                         ServiceResultType.NotFound,
-                        "Secilen kriterlere uygun guncellenecek aktif/yaklasan sefer bulunamadi.");
+                        "No active/upcoming departures found matching the selected criteria.");
                 }
 
                 var criteriaText =
@@ -443,10 +454,10 @@ namespace OtobusBiletRezervasyon.Services
                 await _logService.LogAdminActionAsync(
                     adminId,
                     "SEFER_FIYAT_TOPLU",
-                    $"{affected} seferin fiyati guncellendi ({criteriaText}).",
+                    $"Price updated for {affected} departures ({criteriaText}).",
                     ipAddress);
 
-                return ServiceResult.Ok($"{affected} seferin fiyati guncellendi.");
+                return ServiceResult.Ok($"Price updated for {affected} departures.");
             }
             catch (InvalidOperationException ex)
             {
@@ -482,29 +493,29 @@ namespace OtobusBiletRezervasyon.Services
         public async Task<ServiceResult> KullaniciRolDegistirAsync(int adminId, int kullaniciId, int roleId, string ipAddress)
         {
             if (kullaniciId == adminId)
-                return ServiceResult.Fail(ServiceResultType.Forbidden, "Kendi rolunuzu degistiremezsiniz.");
+                return ServiceResult.Fail(ServiceResultType.Forbidden, "You cannot change your own role.");
 
             var user = await _adminService.GetUserByIdAsync(kullaniciId);
             if (user == null)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Kullanici bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "User not found.");
 
             user.RoleId = roleId;
             await _adminService.UpdateUserAsync(user);
-            await _logService.LogAdminActionAsync(adminId, "ROL_DEGISTIR", $"Kullanici #{kullaniciId} rolu #{roleId} yapildi", ipAddress);
-            return ServiceResult.Ok("Rol guncellendi.");
+            await _logService.LogAdminActionAsync(adminId, "ROL_DEGISTIR", $"User #{kullaniciId} role set to #{roleId}", ipAddress);
+            return ServiceResult.Ok("Role updated.");
         }
 
         public async Task<ServiceResult> KullaniciDurumDegistirAsync(int adminId, int hedefKullaniciId, string ipAddress)
         {
             if (hedefKullaniciId == adminId)
-                return ServiceResult.Fail(ServiceResultType.Forbidden, "Kendi hesabinizi pasife alamazsiniz.");
+                return ServiceResult.Fail(ServiceResultType.Forbidden, "You cannot deactivate your own account.");
 
             var toggled = await _adminService.ToggleUserStatusAsync(hedefKullaniciId);
             if (!toggled)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Kullanici bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "User not found.");
 
-            await _logService.LogAdminActionAsync(adminId, "KULLANICI_DURUM", $"Kullanici #{hedefKullaniciId} durumu degistirildi", ipAddress);
-            return ServiceResult.Ok("Kullanici durumu degistirildi.");
+            await _logService.LogAdminActionAsync(adminId, "KULLANICI_DURUM", $"User #{hedefKullaniciId} status changed", ipAddress);
+            return ServiceResult.Ok("User status changed.");
         }
 
         public async Task<AdminLogPageViewModel> GetLoglarAsync(string? islem, int? kullaniciId, int sayfa)
@@ -555,10 +566,10 @@ namespace OtobusBiletRezervasyon.Services
 
             var deleted = await _logService.DeleteOldLogsAsync(gunSayisi);
             if (!deleted)
-                return ServiceResult.Fail(ServiceResultType.Error, "Log temizleme islemi basarisiz.");
+                return ServiceResult.Fail(ServiceResultType.Error, "Log cleanup process failed.");
 
-            await _logService.LogAdminActionAsync(adminId, "LOG_TEMIZLE", $"{gunSayisi} gunden eski loglar silindi", ipAddress);
-            return ServiceResult.Ok($"{gunSayisi} gunden eski loglar temizlendi.");
+            await _logService.LogAdminActionAsync(adminId, "LOG_TEMIZLE", $"Logs older than {gunSayisi} days deleted", ipAddress);
+            return ServiceResult.Ok($"Logs older than {gunSayisi} days cleaned.");
         }
 
         private static ServiceResult ValidateDeparture(Departure departure)
@@ -567,21 +578,21 @@ namespace OtobusBiletRezervasyon.Services
             {
                 return ServiceResult.Fail(
                     ServiceResultType.ValidationError,
-                    "Kalkis tarihi gecmis olamaz.");
+                    "Departure time cannot be in the past.");
             }
 
             if (departure.ArrivalTime <= departure.DepartureTime)
             {
                 return ServiceResult.Fail(
                     ServiceResultType.ValidationError,
-                    "Varis tarihi kalkis tarihinden sonra olmalidir.");
+                    "Arrival time must be after departure time.");
             }
 
             if (departure.Price <= 0m)
             {
                 return ServiceResult.Fail(
                     ServiceResultType.ValidationError,
-                    "Sefer fiyati 0'dan buyuk olmalidir.");
+                    "Departure price must be greater than 0.");
             }
 
             return ServiceResult.Ok();
@@ -599,7 +610,7 @@ namespace OtobusBiletRezervasyon.Services
                 var existing = await _couponRepository.GetByCodeAsync(dto.Code);
                 if (existing != null)
                 {
-                    return ServiceResult.Fail(ServiceResultType.Conflict, "Bu kupon kodu zaten mevcuttur.");
+                    return ServiceResult.Fail(ServiceResultType.Conflict, "This coupon code already exists.");
                 }
 
                 var coupon = new Coupon
@@ -612,12 +623,12 @@ namespace OtobusBiletRezervasyon.Services
                 };
 
                 await _couponRepository.CreateAsync(coupon);
-                await _logService.LogAdminActionAsync(adminUserId, "KUPON_EKLE", $"Kupon eklendi: {coupon.Code}", ipAddress);
-                return ServiceResult.Ok("Kupon eklendi.");
+                await _logService.LogAdminActionAsync(adminUserId, "KUPON_EKLE", $"Coupon added: {coupon.Code}", ipAddress);
+                return ServiceResult.Ok("Coupon added.");
             }
             catch (Exception ex)
             {
-                return ServiceResult.Fail(ServiceResultType.Error, "Kupon eklenirken bir hata olustu: " + ex.Message);
+                return ServiceResult.Fail(ServiceResultType.Error, "An error occurred while adding coupon: " + ex.Message);
             }
         }
 
@@ -626,13 +637,13 @@ namespace OtobusBiletRezervasyon.Services
             var coupon = await _couponRepository.GetByIdAsync(id);
             if (coupon == null)
             {
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Kupon bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Coupon not found.");
             }
 
             coupon.IsActive = !coupon.IsActive;
             await _couponRepository.UpdateAsync(coupon);
-            await _logService.LogAdminActionAsync(adminUserId, "KUPON_DURUM", $"Kupon {coupon.Code} durumu {coupon.IsActive} yapildi", ipAddress);
-            return ServiceResult.Ok("Kupon durumu guncellendi.");
+            await _logService.LogAdminActionAsync(adminUserId, "KUPON_DURUM", $"Coupon {coupon.Code} status set to {coupon.IsActive}", ipAddress);
+            return ServiceResult.Ok("Coupon status updated.");
         }
 
         public async Task<ServiceResult> KuponSilAsync(int id, int adminUserId, string ipAddress)
@@ -640,7 +651,7 @@ namespace OtobusBiletRezervasyon.Services
             var coupon = await _couponRepository.GetByIdAsync(id);
             if (coupon == null)
             {
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Kupon bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Coupon not found.");
             }
 
             // We normally shouldn't randomly delete coupons if they have been used, but CouponUsage table has cascade delete or we just do a soft-delete physically.
@@ -649,14 +660,14 @@ namespace OtobusBiletRezervasyon.Services
             {
                 var deleted = await _couponRepository.DeleteAsync(id);
                 if (!deleted)
-                    return ServiceResult.Fail(ServiceResultType.Error, "Kupon silinemedi.");
+                    return ServiceResult.Fail(ServiceResultType.Error, "Coupon could not be deleted.");
 
-                await _logService.LogAdminActionAsync(adminUserId, "KUPON_SIL", $"Kupon silindi: {coupon.Code}", ipAddress);
-                return ServiceResult.Ok("Kupon silindi.");
+                await _logService.LogAdminActionAsync(adminUserId, "KUPON_SIL", $"Coupon deleted: {coupon.Code}", ipAddress);
+                return ServiceResult.Ok("Coupon deleted.");
             }
             catch (Exception)
             {
-                return ServiceResult.Fail(ServiceResultType.Conflict, "Bu kupon su an kullanimda oldugu veya gecmiste kullanildigi icin silinemez. Onun yerine pasife almayi deneyin.");
+                return ServiceResult.Fail(ServiceResultType.Conflict, "This coupon cannot be deleted because it is currently in use or has been used in the past. Try deactivating it instead.");
             }
         }
     }

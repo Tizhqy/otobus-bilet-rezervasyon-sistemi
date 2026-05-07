@@ -18,6 +18,12 @@ namespace OtobusBiletRezervasyon.Repositories.Interfaces
         Task<IEnumerable<Departure>> GetByRouteIdAsync(int routeId);
         Task<IEnumerable<Departure>> GetByBusIdAsync(int busId);
         Task<IEnumerable<Departure>> GetUpcomingAsync(int count = 10);
+        Task<(IReadOnlyList<Departure> Departures, int TotalCount)> GetPagedUpcomingAsync(string? search, int page, int pageSize);
+        
+        /// <summary>
+        /// Tüm yaklaşan seferler içinden maksimum fiyatı bulur (Sayfalama yok, tüm veritabanı üzerinde)
+        /// </summary>
+        Task<decimal> GetMaxPriceAsync();
 
         // Route
         Task<Route?> GetRouteByIdAsync(int id);

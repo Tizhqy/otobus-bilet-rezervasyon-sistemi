@@ -11,10 +11,12 @@ namespace OtobusBiletRezervasyon.Controllers
     public class BiletController : BaseController
     {
         private readonly IBiletFlowService _biletFlowService;
+        private readonly IPdfTicketService _pdfTicketService;
 
-        public BiletController(IBiletFlowService biletFlowService)
+        public BiletController(IBiletFlowService biletFlowService, IPdfTicketService pdfTicketService)
         {
             _biletFlowService = biletFlowService;
+            _pdfTicketService = pdfTicketService;
         }
 
         #region Liste (User Tickets)
@@ -25,6 +27,31 @@ namespace OtobusBiletRezervasyon.Controllers
             int userId = GetCurrentUserId();
             var tickets = await _biletFlowService.GetUserTicketsAsync(userId);
             return View(tickets);
+        }
+
+        #endregion
+
+        #region Indir (Download PDF)
+
+        [HttpGet]
+        public async Task<IActionResult> Indir(int id)
+        {
+            int userId = GetCurrentUserId();
+            bool isAdmin = User.IsInRole("Admin") || User.IsInRole("admin");
+            var result = await _biletFlowService.GetTicketDetayForUserAsync(id, userId, isAdmin);
+
+            if (!result.Success)
+            {
+                return result.Type switch
+                {
+                    ServiceResultType.NotFound => NotFound(),
+                    ServiceResultType.Forbidden => Forbid(),
+                    _ => NotFound()
+                };
+            }
+
+            var pdfBytes = _pdfTicketService.GenerateTicketPdf(result.Data!);
+            return File(pdfBytes, "application/pdf", $"HamsiBus-Ticket-{id}.pdf");
         }
 
         #endregion
@@ -181,7 +208,7 @@ namespace OtobusBiletRezervasyon.Controllers
         public async Task<IActionResult> KoltukKontrol(int seferId, [FromBody] List<int> koltukIds)
         {
             if (koltukIds == null || !koltukIds.Any())
-                return BadRequest(new { error = "Koltuk secilmedi." });
+                return BadRequest(new { error = "No seats selected." });
 
             var areAvailable = await _biletFlowService.KoltuklarMusaitMiAsync(seferId, koltukIds);
             return Json(new { available = areAvailable });

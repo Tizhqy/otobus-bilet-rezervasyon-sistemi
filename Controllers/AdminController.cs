@@ -21,23 +21,26 @@ namespace OtobusBiletRezervasyon.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Dashboard()
+        public async Task<IActionResult> Dashboard(string? depSearch, int depPage = 1)
         {
-            var model = await _adminFlowService.GetDashboardAsync();
+            var model = await _adminFlowService.GetDashboardAsync(depSearch, depPage);
             return View(model);
         }
 
         [HttpGet]
-        public IActionResult GetLiveBusLocations()
+        public async Task<IActionResult> GetLiveBusLocations()
         {
+            var buses = await _adminFlowService.GetOtobuslerAsync();
             var random = new Random();
-            var locations = new[]
+            var locations = buses.Where(b => b.IsActive).Select((b, index) => new
             {
-                new { Id = 1, Plate = "34 ABC 123", Lat = 41.0082 + (random.NextDouble() * 0.1 - 0.05), Lng = 28.9784 + (random.NextDouble() * 0.1 - 0.05), Speed = random.Next(60, 100), Status = "Active" },
-                new { Id = 2, Plate = "06 XYZ 987", Lat = 39.9208 + (random.NextDouble() * 0.1 - 0.05), Lng = 32.8541 + (random.NextDouble() * 0.1 - 0.05), Speed = random.Next(60, 100), Status = "Active" },
-                new { Id = 3, Plate = "61 TS 1967", Lat = 41.0027 + (random.NextDouble() * 0.1 - 0.05), Lng = 39.7168 + (random.NextDouble() * 0.1 - 0.05), Speed = random.Next(60, 100), Status = "Active" },
-                new { Id = 4, Plate = "35 IZM 35", Lat = 38.4237 + (random.NextDouble() * 0.1 - 0.05), Lng = 27.1428 + (random.NextDouble() * 0.1 - 0.05), Speed = 0, Status = "Stopped" }
-            };
+                Id = b.Id,
+                Plate = b.PlateNumber,
+                Lat = 39.5 + (random.NextDouble() * 2.0 - 1.0), // roughly central Turkey
+                Lng = 34.0 + (random.NextDouble() * 5.0 - 2.5),
+                Speed = random.Next(0, 10) > 2 ? random.Next(60, 100) : 0,
+                Status = random.Next(0, 10) > 2 ? "Active" : "Stopped"
+            });
             
             return Json(locations);
         }
@@ -411,7 +414,7 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             if (!ModelState.IsValid)
             {
-                TempData["Hata"] = "Lutfen form verilerini kontrol edip dogru giriniz.";
+                TempData["Hata"] = "Please check the form data and enter valid values.";
                 return RedirectToAction("Kuponlar");
             }
 

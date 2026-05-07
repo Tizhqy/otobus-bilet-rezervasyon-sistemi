@@ -13,6 +13,12 @@ namespace OtobusBiletRezervasyon.DTOs.ViewModels
         public List<Departure> UpcomingDepartures { get; set; } = new();
         public List<Route> RouteOptions { get; set; } = new();
         public List<Bus> BusOptions { get; set; } = new();
+
+        // Pagination for Upcoming Departures
+        public int DeparturesTotalCount { get; set; }
+        public int DeparturesCurrentPage { get; set; } = 1;
+        public int DeparturesTotalPages { get; set; } = 1;
+        public string? DepartureSearchTerm { get; set; }
     }
 }
 

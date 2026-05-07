@@ -10,7 +10,7 @@ namespace OtobusBiletRezervasyon
         /// Odeme icin verilen sure (dakika).
         /// Bu sure icinde odeme yapilmazsa bilet otomatik iptal edilir.
         /// </summary>
-        public const int PaymentTimeoutMinutes = 15;
+        public const int PaymentTimeoutMinutes = 5;
 
         /// <summary>
         /// Bilet iptal edilebilmesi icin kalkisa kalan minimum sure (dakika).
@@ -47,6 +47,11 @@ namespace OtobusBiletRezervasyon
         /// Admin kullanici listesinde sayfa basina gosterilecek kayit sayisi.
         /// </summary>
         public const int AdminUserPageSize = 50;
+
+        /// <summary>
+        /// Admin dashboard sefer listesinde sayfa basina gosterilecek kayit sayisi.
+        /// </summary>
+        public const int AdminDeparturePageSize = 15;
 
         /// <summary>
         /// Bilet satisinin kapanacagi, kalkis oncesi minimum sure (dakika).

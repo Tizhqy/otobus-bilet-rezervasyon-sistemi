@@ -65,6 +65,22 @@ namespace OtobusBiletRezervasyon.Services
             return result;
         }
 
+        /// <summary>
+        /// Finds the maximum price among ALL upcoming departures.
+        /// Used for scaling the price slider correctly on the frontend.
+        /// (Includes all departures, not just the visible ones)
+        /// </summary>
+        public async Task<decimal> GetMaxPriceForUpcomingDeparturesAsync()
+        {
+            var baseMaxPrice = await _departureRepository.GetMaxPriceAsync();
+            
+            // Margin for high demand pricing (%10 surcharge)
+            var withSurgeMargin = baseMaxPrice * 1.10m;
+            
+            // Extra margin for UI (%5)
+            return Math.Ceiling(withSurgeMargin * 1.05m);
+        }
+
         public async Task<IEnumerable<StationInfoDto>> GetAllStationsAsync()
         {
             var stations = await _departureRepository.GetActiveStationsAsync();
@@ -97,8 +113,8 @@ namespace OtobusBiletRezervasyon.Services
         {
             var route = departure.Route;
             var bus = departure.Bus;
-            var originStation = MapRouteStation(route?.OriginStation, route?.OriginStationId ?? 0, "Kalkis Istasyonu");
-            var destinationStation = MapRouteStation(route?.DestinationStation, route?.DestinationStationId ?? 0, "Varis Istasyonu");
+            var originStation = MapRouteStation(route?.OriginStation, route?.OriginStationId ?? 0, "Departure Station");
+            var destinationStation = MapRouteStation(route?.DestinationStation, route?.DestinationStationId ?? 0, "Arrival Station");
 
             bool applyDynamicPricing = availableSeats <= 10 && availableSeats > 0;
             decimal finalPrice = applyDynamicPricing ? departure.Price * 1.10m : departure.Price;
@@ -150,7 +166,7 @@ namespace OtobusBiletRezervasyon.Services
 
         private static StationInfoDto MapToStationInfoDto(Station station)
         {
-            var name = NormalizeDisplayValue(station.Name, $"Istasyon #{station.Id}");
+            var name = NormalizeDisplayValue(station.Name, $"Station #{station.Id}");
             return new StationInfoDto
             {
                 Id = station.Id,

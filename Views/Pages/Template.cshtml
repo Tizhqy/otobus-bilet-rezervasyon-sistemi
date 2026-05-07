@@ -1,4 +1,4 @@
-@{ ViewData["Title"] = "Generic Page Template"; }
+@{ ViewData["Title"] = ViewData["Title"] ?? "Generic Page"; }
 <div class="container mt-5 pt-4">
     <h1 class="mb-4">@ViewData["Title"]</h1>
     <div class="card shadow-sm border-0 card-HamsiBus">

@@ -51,7 +51,7 @@
                     <i data-lucide="wallet" style="width:24px;height:24px;"></i>
                 </div>
                 <div>
-                    <div class="stat-value">$@biletler.Sum(b => b.TotalPrice).ToString("0.00")</div>
+                    <div class="stat-value">$@biletler.Where(b => b.Status.Equals("Confirmed", StringComparison.OrdinalIgnoreCase) || b.Status.Equals("ONAYLANDI", StringComparison.OrdinalIgnoreCase)).Sum(b => b.TotalPrice).ToString("0.00")</div>
                     <div class="stat-label">Total Spent</div>
                 </div>
             </div>
@@ -119,6 +119,9 @@
                             </div>
                             <div class="col-md-4 text-md-end">
                                 <div class="d-flex gap-2 justify-content-md-end">
+                                    <a asp-controller="Bilet" asp-action="Indir" asp-route-id="@bilet.Id" class="btn btn-outline-primary btn-sm">
+                                        <i data-lucide="download" style="width:14px;height:14px;"></i>
+                                    </a>
                                     <a asp-controller="Bilet" asp-action="Detay" asp-route-id="@bilet.Id" class="btn btn-outline-HamsiBus btn-sm">
                                         <i data-lucide="eye" style="width:14px;height:14px;"></i>
                                         Detail
@@ -131,16 +134,16 @@
                                             <form asp-controller="Bilet" asp-action="Iptal" method="post" class="d-inline">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@bilet.Id" />
-                                                <button type="submit" class="btn btn-sm" style="border:1px solid var(--danger);color:var(--danger);border-radius:var(--radius);font-weight:600;" onclick="return confirm('Bu bileti iptal etmek istediginize emin misiniz? Idari kesinti uygulanabilir.');">
-                                                    İptal Et
+                                                <button type="submit" class="btn btn-sm" style="border:1px solid var(--danger);color:var(--danger);border-radius:var(--radius);font-weight:600;" onclick="return confirm('Are you sure you want to cancel this ticket? An administrative fee may apply.');">
+                                                    Cancel
                                                 </button>
                                             </form>
                                         }
                                         else if (bilet.Departure.DepartureTime >= DateTime.UtcNow)
                                         {
                                             <span style="font-size:0.8rem;color:var(--text-muted);border:1px solid #e2e8f0;padding:4px 8px;border-radius:4px;cursor:help;" 
-                                                  title="Kalkisa son @OtobusBiletRezervasyon.AppConfig.MinCancellationMinutesBeforeDeparture kala bilet iptalleri sistem tarafindan kapatilir.">
-                                              <i data-lucide="lock" style="width:12px;height:12px;"></i> Kilitli
+                                                  title="Ticket cancellations are locked by the system @OtobusBiletRezervasyon.AppConfig.MinCancellationMinutesBeforeDeparture minutes before departure.">
+                                              <i data-lucide="lock" style="width:12px;height:12px;"></i> Locked
                                             </span>
                                         }
                                     }

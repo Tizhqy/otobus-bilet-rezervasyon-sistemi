@@ -40,6 +40,7 @@ namespace OtobusBiletRezervasyon.Services.Interfaces
         // Departure Management
         Task<IEnumerable<Departure>> GetAllDeparturesAsync();
         Task<IEnumerable<Departure>> GetUpcomingDeparturesAsync(int count = 100);
+        Task<(IReadOnlyList<Departure> Departures, int TotalCount)> GetUpcomingDeparturesPageAsync(string? search, int page, int pageSize);
         Task<Departure?> GetDepartureByIdAsync(int id);
         Task<Departure> CreateDepartureAsync(Departure departure);
         Task<Departure> UpdateDepartureAsync(Departure departure);

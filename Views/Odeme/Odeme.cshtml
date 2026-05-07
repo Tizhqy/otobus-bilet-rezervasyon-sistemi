@@ -27,7 +27,7 @@
                             <input type="hidden" name="CouponCode" id="hiddenCouponCodeInput" />
 
                             <div class="mb-3">
-                                <label class="form-label">Odeme Yontemi</label>
+                                <label class="form-label">Payment Method</label>
                                 <select class="form-select" id="odemeYontemiSelect" required>
                                     <option value="CreditCard">Credit Card</option>
                                     <option value="DebitCard">Debit Card</option>
@@ -35,16 +35,16 @@
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Kart Numarasi</label>
+                                <label class="form-label">Card Number</label>
                                 <input type="text" class="form-control" id="kartNoInput" placeholder="1234 5678 9012 3456" autocomplete="cc-number" required />
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Kart Sahibi</label>
+                                <label class="form-label">Card Holder</label>
                                 <input type="text" class="form-control" id="kartSahibiInput" placeholder="John Smith" autocomplete="cc-name" required />
                             </div>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label">Son Kullanma</label>
+                                    <label class="form-label">Expiry Date</label>
                                     <input type="text" class="form-control" id="sonKullanmaInput" placeholder="MM/YY" autocomplete="cc-exp" required />
                                 </div>
                                 <div class="col-md-6">
@@ -54,7 +54,7 @@
                             </div>
                             <button type="submit" class="btn btn-primary-HamsiBus mt-4">
                                 <i data-lucide="lock" style="width:16px;height:16px;"></i>
-                                Odemeyi Tamamla
+                                Complete Payment
                             </button>
                         </form>
                     </div>
@@ -144,12 +144,16 @@
             if (applyCouponBtn) {
                 applyCouponBtn.addEventListener("click", async function () {
                     const code = couponCodeInput.value.trim();
-                    if (!code) return;
+                    if (!code) {
+                        couponMessage.innerHTML = "<span class='text-warning'>Please enter a coupon code</span>";
+                        return;
+                    }
 
                     applyCouponBtn.disabled = true;
                     couponMessage.innerHTML = "<span class='text-muted'>Checking...</span>";
 
                     try {
+                        const biletId = document.getElementById("biletIdInput").value;
                         const response = await fetch('@Url.Action("UygulaKupon", "Odeme")', {
                             method: "POST",
                             headers: {
@@ -157,30 +161,39 @@
                                 "X-CSRF-TOKEN": document.querySelector('input[name="__RequestVerificationToken"]').value
                             },
                             body: JSON.stringify({ 
-                                BiletId: document.getElementById("biletIdInput").value, 
+                                BiletId: parseInt(biletId, 10), 
                                 KuponKodu: code 
                             })
                         });
 
                         if (response.ok) {
                             const data = await response.json();
-                            if (data.success) {
+                            if (data && data.success && data.newPrice !== undefined) {
+                                const discount = parseFloat('@Model.TotalPrice') - parseFloat(data.newPrice);
+                                const discountPercent = ((discount / parseFloat('@Model.TotalPrice')) * 100).toFixed(1);
+                                
                                 totalPriceSpan.innerHTML = `$${data.newPrice.toFixed(2)}`;
-                                couponMessage.innerHTML = "<span class='text-success'>Coupon applied successfully!</span>";
+                                couponMessage.innerHTML = `<span class='text-success'>✓ Coupon applied! You saved $${discount.toFixed(2)} (${discountPercent}% off)</span>`;
                                 hiddenCouponCodeInput.value = code;
+                                couponCodeInput.disabled = true;
+                                applyCouponBtn.disabled = true;
                             } else {
-                                couponMessage.innerHTML = `<span class='text-danger'>${data.message || 'Invalid coupon'}</span>`;
+                                const msg = data?.message || 'Invalid coupon code or already used';
+                                couponMessage.innerHTML = `<span class='text-danger'>✗ ${msg}</span>`;
                                 hiddenCouponCodeInput.value = "";
+                                applyCouponBtn.disabled = false;
                             }
                         } else {
                             const text = await response.text();
-                            couponMessage.innerHTML = `<span class='text-danger'>${text || 'Error applying coupon.'}</span>`;
+                            const msg = text || 'Server error applying coupon';
+                            couponMessage.innerHTML = `<span class='text-danger'>✗ Error: ${msg}</span>`;
                             hiddenCouponCodeInput.value = "";
+                            applyCouponBtn.disabled = false;
                         }
                     } catch (err) {
-                        couponMessage.innerHTML = "<span class='text-danger'>Connection error.</span>";
+                        console.error("Coupon error:", err);
+                        couponMessage.innerHTML = "<span class='text-danger'>✗ Connection error</span>";
                         hiddenCouponCodeInput.value = "";
-                    } finally {
                         applyCouponBtn.disabled = false;
                     }
                 });
@@ -196,27 +209,27 @@
                     const cvv = (cvvInput?.value || "").trim();
 
                     if (normalizedCardNo.length < 12 || normalizedCardNo.length > 19) {
-                        showToast("Kart numarasi gecersiz.", "danger");
+                        showToast("Invalid card number.", "danger");
                         return;
                     }
 
                     if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry)) {
-                        showToast("Son kullanma tarihi MM/YY formatinda olmali.", "danger");
+                        showToast("Expiry date must be in MM/YY format.", "danger");
                         return;
                     }
 
                     if (!/^\d{3,4}$/.test(cvv)) {
-                        showToast("CVV gecersiz.", "danger");
+                        showToast("Invalid CVV.", "danger");
                         return;
                     }
 
                     if (cardHolder.length < 2) {
-                        showToast("Kart sahibi bilgisi gecersiz.", "danger");
+                        showToast("Invalid card holder info.", "danger");
                         return;
                     }
 
                     if (!window.crypto || !window.crypto.subtle) {
-                        showToast("Tarayici guvenli odeme tokeni uretemedi.", "danger");
+                        showToast("Browser could not generate secure payment token.", "danger");
                         return;
                     }
 

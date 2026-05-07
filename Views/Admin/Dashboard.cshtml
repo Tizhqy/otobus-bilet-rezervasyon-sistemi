@@ -15,7 +15,7 @@
             </div>
             <div>
                 <a asp-action="Kuponlar" asp-controller="Admin" class="btn btn-outline-primary">
-                    <i data-lucide="tag" style="width:18px;height:18px;"></i> Kupon Yönetimi
+                    <i data-lucide="tag" style="width:18px;height:18px;"></i> Coupon Management
                 </a>
             </div>
         </div>
@@ -89,9 +89,9 @@
             <div class="col-12">
                 <div class="data-table">
                     <div class="p-3 pb-0">
-                        <h6 class="fw-700 mb-1">Sefer Fiyat Yonetimi</h6>
+                        <h6 class="fw-700 mb-1">Departure Price Management</h6>
                         <p class="text-muted mb-0">
-                            Tekli fiyat duzenleyebilir veya filtreye gore aktif/yaklasan seferlerde toplu fiyat guncellemesi yapabilirsiniz.
+                            Update individual prices or apply bulk price updates for active/upcoming departures based on filters.
                         </p>
                     </div>
 
@@ -101,7 +101,7 @@
                             <div class="col-md-2">
                                 <label class="form-label mb-1">Route</label>
                                 <select class="form-select" name="RouteId">
-                                    <option value="">Tum Rotalar</option>
+                                    <option value="">All Routes</option>
                                     @foreach (var route in Model.RouteOptions)
                                     {
                                         var origin = !string.IsNullOrWhiteSpace(route.OriginStation?.City)
@@ -117,7 +117,7 @@
                             <div class="col-md-2">
                                 <label class="form-label mb-1">Bus</label>
                                 <select class="form-select" name="BusId">
-                                    <option value="">Tum Otobusler</option>
+                                    <option value="">All Buses</option>
                                     @foreach (var bus in Model.BusOptions)
                                     {
                                         <option value="@bus.Id">@bus.PlateNumber</option>
@@ -140,7 +140,7 @@
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label mb-1">Multiplier</label>
+                                <label class="form-label mb-1">Multiplier / Price</label>
                                 <input type="text"
                                        inputmode="decimal"
                                        class="form-control"
@@ -157,10 +157,32 @@
                             </div>
                             <div class="col-12 d-flex justify-content-end">
                                 <button type="submit" class="btn btn-primary-HamsiBus">
-                                    Toplu Fiyat Guncelle
+                                    Bulk Update Prices
                                 </button>
                             </div>
                         </form>
+                    </div>
+
+                    <div class="p-3 border-bottom d-flex align-items-center gap-2 flex-wrap">
+                        <form asp-action="Dashboard" asp-controller="Admin" method="get" class="d-flex gap-2 align-items-center flex-grow-1">
+                            <div class="input-group" style="max-width:340px;">
+                                <span class="input-group-text"><i data-lucide="search" style="width:16px;height:16px;"></i></span>
+                                <input type="text"
+                                       class="form-control"
+                                       name="depSearch"
+                                       placeholder="Search by ID, plate or city..."
+                                       value="@Model.DepartureSearchTerm" />
+                                @if (!string.IsNullOrWhiteSpace(Model.DepartureSearchTerm))
+                                {
+                                    <a asp-action="Dashboard" asp-controller="Admin" class="btn btn-outline-secondary">Clear</a>
+                                }
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-primary-HamsiBus">Search</button>
+                        </form>
+                        <span class="text-muted" style="font-size:0.85rem; white-space:nowrap;">
+                            @Model.DeparturesTotalCount departure(s) found &nbsp;·&nbsp;
+                            Page @Model.DeparturesCurrentPage of @Model.DeparturesTotalPages
+                        </span>
                     </div>
 
                     <div class="table-responsive">
@@ -179,7 +201,14 @@
                                 {
                                     <tr>
                                         <td colspan="5" class="text-center text-muted py-4">
-                                            Fiyat guncellemesi icin yaklasan aktif sefer bulunamadi.
+                                            @if (!string.IsNullOrWhiteSpace(Model.DepartureSearchTerm))
+                                            {
+                                                <span>No departures found for "<strong>@Model.DepartureSearchTerm</strong>".</span>
+                                            }
+                                            else
+                                            {
+                                                <span>No active upcoming departures found for price update.</span>
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -220,7 +249,7 @@
                                                                required
                                                                value="@departure.Price.ToString("0.00", CultureInfo.CurrentCulture)" />
                                                     </div>
-                                                    <button type="submit" class="btn btn-sm btn-primary-HamsiBus">Kaydet</button>
+                                                    <button type="submit" class="btn btn-sm btn-primary-HamsiBus">Save</button>
                                                 </form>
                                             </td>
                                         </tr>
@@ -229,6 +258,51 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @if (Model.DeparturesTotalPages > 1)
+                    {
+                        <div class="p-3 d-flex justify-content-center">
+                            <nav aria-label="Departures pagination">
+                                <ul class="pagination pagination-sm mb-0">
+                                    @if (Model.DeparturesCurrentPage > 1)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link"
+                                               asp-action="Dashboard" asp-controller="Admin"
+                                               asp-route-depSearch="@Model.DepartureSearchTerm"
+                                               asp-route-depPage="@(Model.DeparturesCurrentPage - 1)">
+                                                &laquo;
+                                            </a>
+                                        </li>
+                                    }
+
+                                    @for (int p = Math.Max(1, Model.DeparturesCurrentPage - 2); p <= Math.Min(Model.DeparturesTotalPages, Model.DeparturesCurrentPage + 2); p++)
+                                    {
+                                        <li class="page-item @(p == Model.DeparturesCurrentPage ? "active" : "")">
+                                            <a class="page-link"
+                                               asp-action="Dashboard" asp-controller="Admin"
+                                               asp-route-depSearch="@Model.DepartureSearchTerm"
+                                               asp-route-depPage="@p">
+                                                @p
+                                            </a>
+                                        </li>
+                                    }
+
+                                    @if (Model.DeparturesCurrentPage < Model.DeparturesTotalPages)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link"
+                                               asp-action="Dashboard" asp-controller="Admin"
+                                               asp-route-depSearch="@Model.DepartureSearchTerm"
+                                               asp-route-depPage="@(Model.DeparturesCurrentPage + 1)">
+                                                &raquo;
+                                            </a>
+                                        </li>
+                                    }
+                                </ul>
+                            </nav>
+                        </div>
+                    }
                 </div>
             </div>
         </div>

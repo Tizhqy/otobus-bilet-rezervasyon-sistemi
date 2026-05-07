@@ -19,21 +19,21 @@ namespace OtobusBiletRezervasyon.Services
 
         public Task<bool> SendPasswordResetEmailAsync(string toEmail, string firstName, string resetLink)
         {
-            var subject = "HamsiBus | Sifre Sifirlama Talebi";
+            var subject = "HamsiBus | Password Reset Request";
             var body = BuildPasswordResetBody(firstName, resetLink);
             return SendEmailAsync(toEmail, subject, body);
         }
 
         public Task<bool> SendWelcomeEmailAsync(string toEmail, string firstName)
         {
-            var subject = "HamsiBus | Hos Geldiniz";
+            var subject = "HamsiBus | Welcome";
             var body = BuildWelcomeBody(firstName);
             return SendEmailAsync(toEmail, subject, body);
         }
 
         public Task<bool> SendTicketConfirmationEmailAsync(string toEmail, string firstName, TicketResponseDto ticket, string referenceNo)
         {
-            var subject = $"HamsiBus | Biletiniz Hazir (#{ticket.Id})";
+            var subject = $"HamsiBus | Your Ticket is Ready (#{ticket.Id})";
             var body = BuildTicketConfirmationBody(firstName, ticket, referenceNo);
             return SendEmailAsync(toEmail, subject, body);
         }
@@ -43,7 +43,7 @@ namespace OtobusBiletRezervasyon.Services
             var smtp = GetSmtpOptions();
             if (smtp == null || string.IsNullOrWhiteSpace(toEmail))
             {
-                _logger.LogWarning("SMTP ayarlari eksik oldugu icin e-posta gonderilemedi. Subject={Subject}", subject);
+                _logger.LogWarning("SMTP configuration is missing. Cannot send email. Subject={Subject}", subject);
                 return false;
             }
 
@@ -77,7 +77,7 @@ namespace OtobusBiletRezervasyon.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "E-posta gonderilemedi. To={Email}, Subject={Subject}", toEmail, subject);
+                _logger.LogError(ex, "Failed to send email. To={Email}, Subject={Subject}", toEmail, subject);
                 return false;
             }
         }
@@ -110,18 +110,18 @@ namespace OtobusBiletRezervasyon.Services
 
             var content =
                 $"""
-                <p style="margin:0 0 14px;">Merhaba <strong>{safeName}</strong>,</p>
-                <p style="margin:0 0 14px;">Sifre sifirlama talebiniz alindi. Asagidaki butonu kullanarak sifrenizi guvenli sekilde yenileyebilirsiniz.</p>
+                <p style="margin:0 0 14px;">Hello <strong>{safeName}</strong>,</p>
+                <p style="margin:0 0 14px;">We received a request to reset your password. You can securely set a new password by clicking the button below.</p>
                 <p style="margin:20px 0;">
                     <a href="{safeLink}" style="display:inline-block;background:#1a5276;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700;">
-                        Sifremi Sifirla
+                        Reset My Password
                     </a>
                 </p>
-                <p style="margin:0 0 8px;">Bu baglanti <strong>1 saat</strong> boyunca gecerlidir.</p>
-                <p style="margin:0;">Bu islemi siz yapmadiysaniz bu e-postayi dikkate almayin ve hesabinizin guvenligi icin sifrenizi degistirin.</p>
+                <p style="margin:0 0 8px;">This link is valid for <strong>1 hour</strong>.</p>
+                <p style="margin:0;">If you did not request this, please ignore this email and change your password for your account's safety.</p>
                 """;
 
-            return BuildEmailLayout("Sifre Sifirlama", content);
+            return BuildEmailLayout("Password Reset", content);
         }
 
         private static string BuildWelcomeBody(string firstName)
@@ -129,18 +129,18 @@ namespace OtobusBiletRezervasyon.Services
             var safeName = WebUtility.HtmlEncode(GetDisplayName(firstName));
             var content =
                 $"""
-                <p style="margin:0 0 14px;">Merhaba <strong>{safeName}</strong>,</p>
-                <p style="margin:0 0 14px;">HamsiBus'a hos geldiniz. Hesabiniz basariyla olusturuldu.</p>
-                <p style="margin:0 0 8px;">Sektor standartlarina uygun guvenli kullanim icin:</p>
+                <p style="margin:0 0 14px;">Hello <strong>{safeName}</strong>,</p>
+                <p style="margin:0 0 14px;">Welcome to HamsiBus. Your account has been created successfully.</p>
+                <p style="margin:0 0 8px;">For secure usage according to industry standards:</p>
                 <ul style="margin:0 0 14px 20px;padding:0;">
-                    <li style="margin:0 0 6px;">Sifrenizi kimseyle paylasmayin.</li>
-                    <li style="margin:0 0 6px;">Toplu/agik aglarda oturumu acik birakmayin.</li>
-                    <li style="margin:0;">Supheli durumda sifrenizi hemen yenileyin.</li>
+                    <li style="margin:0 0 6px;">Do not share your password with anyone.</li>
+                    <li style="margin:0 0 6px;">Do not stay logged in on public/open networks.</li>
+                    <li style="margin:0;">Renew your password immediately if you suspect any suspicious activity.</li>
                 </ul>
-                <p style="margin:0;">Iyi yolculuklar dileriz.</p>
+                <p style="margin:0;">We wish you a pleasant journey.</p>
                 """;
 
-            return BuildEmailLayout("Hesabiniz Hazir", content);
+            return BuildEmailLayout("Your Account is Ready", content);
         }
 
         private static string BuildTicketConfirmationBody(string firstName, TicketResponseDto ticket, string referenceNo)
@@ -165,23 +165,27 @@ namespace OtobusBiletRezervasyon.Services
 
             var content =
                 $"""
-                <p style="margin:0 0 14px;">Merhaba <strong>{safeName}</strong>,</p>
-                <p style="margin:0 0 14px;">Odemeniz basariyla tamamlandi. Bilet bilgileriniz asagidadir:</p>
+                <p style="margin:0 0 14px;">Hello <strong>{safeName}</strong>,</p>
+                <p style="margin:0 0 14px;">Your payment has been successfully processed. Your ticket details are below:</p>
                 <table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px;">
-                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Bilet No</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">#{safeTicketNo}</td></tr>
-                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Referans</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeReference}</td></tr>
-                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Guzergah</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeRoute}</td></tr>
-                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Kalkis</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeFrom} - {safeDeparture}</td></tr>
-                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Varis</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeTo} - {safeArrival}</td></tr>
-                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Otobus</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeBus}</td></tr>
-                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Koltuk</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeSeatText}</td></tr>
-                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Odeme Yontemi</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safePaymentMethod}</td></tr>
-                    <tr><td style="padding:8px;"><strong>Toplam Tutar</strong></td><td style="padding:8px;"><strong>{safeTotal}</strong></td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Ticket No</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">#{safeTicketNo}</td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Reference</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeReference}</td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Route</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeRoute}</td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Departure</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeFrom} - {safeDeparture}</td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Arrival</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeTo} - {safeArrival}</td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Bus</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeBus}</td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Seat(s)</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safeSeatText}</td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>Payment Method</strong></td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">{safePaymentMethod}</td></tr>
+                    <tr><td style="padding:8px;"><strong>Total Amount</strong></td><td style="padding:8px;"><strong>{safeTotal}</strong></td></tr>
                 </table>
-                <p style="margin:14px 0 0;">Bu e-postayi ve referans numaranizi terminal girisinde hazir bulundurmaniz tavsiye edilir.</p>
+                <div style="text-align:center; margin-top:20px; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 8px; background-color: #f8fafc;">
+                    <p style="margin:0 0 10px; font-size: 13px; color: #64748b;">Your E-Ticket QR Code (Please scan when boarding)</p>
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=HamsiBus-Ticket-{safeTicketNo}-{safeReference}" alt="Ticket QR Code" style="border-radius: 8px;" />
+                </div>
+                <p style="margin:14px 0 0;">It is recommended to have this email and your reference number ready at the terminal entrance.</p>
                 """;
 
-            return BuildEmailLayout("Biletiniz Hazir", content);
+            return BuildEmailLayout("Your Ticket is Ready", content);
         }
 
         private static string BuildEmailLayout(string title, string contentHtml)
@@ -196,20 +200,42 @@ namespace OtobusBiletRezervasyon.Services
                   <meta charset="utf-8" />
                   <meta name="viewport" content="width=device-width, initial-scale=1" />
                   <title>{safeTitle}</title>
+                  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
                 </head>
-                <body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
-                  <div style="max-width:640px;margin:24px auto;padding:0 12px;">
-                    <div style="background:#1a5276;color:#ffffff;padding:16px 20px;border-radius:12px 12px 0 0;">
-                      <h1 style="margin:0;font-size:20px;">HamsiBus</h1>
-                      <p style="margin:6px 0 0;font-size:13px;opacity:.9;">{safeTitle}</p>
-                    </div>
-                    <div style="background:#ffffff;padding:20px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;line-height:1.55;">
-                      {contentHtml}
-                    </div>
-                    <p style="margin:12px 4px 0;font-size:12px;color:#6b7280;">
-                      Bu e-posta otomatik olarak olusturulmustur. Destek icin lutfen HamsiBus ile iletisime gecin.
-                    </p>
-                  </div>
+                <body style="margin:0;padding:0;background-color:#f4f7f6;font-family:'Inter', Arial, sans-serif;color:#333333;-webkit-font-smoothing:antialiased;">
+                  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f4f7f6;padding:40px 0;">
+                    <tr>
+                      <td align="center">
+                        <table role="presentation" width="600" border="0" cellspacing="0" cellpadding="0" style="background-color:#ffffff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.05);overflow:hidden;">
+                          <!-- Header -->
+                          <tr>
+                            <td style="background:linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);padding:40px 30px;text-align:center;">
+                              <h1 style="margin:0;font-size:28px;color:#ffffff;font-weight:700;letter-spacing:1px;">🚌 HamsiBus</h1>
+                              <p style="margin:10px 0 0;font-size:15px;color:#e0e7ff;font-weight:400;opacity:0.9;">{safeTitle}</p>
+                            </td>
+                          </tr>
+                          <!-- Body Content -->
+                          <tr>
+                            <td style="padding:40px 30px;line-height:1.6;font-size:16px;color:#4b5563;">
+                              {contentHtml}
+                            </td>
+                          </tr>
+                          <!-- Footer -->
+                          <tr>
+                            <td style="background-color:#f8fafc;padding:30px;text-align:center;border-top:1px solid #e2e8f0;">
+                              <p style="margin:0;font-size:13px;color:#64748b;line-height:1.5;">
+                                This email was generated automatically.<br>
+                                For support, please contact the <a href="#" style="color:#2a5298;text-decoration:none;font-weight:600;">HamsiBus Support Center</a>.
+                              </p>
+                              <p style="margin:15px 0 0;font-size:12px;color:#94a3b8;">
+                                &copy; {DateTime.Now.Year} HamsiBus. All rights reserved.
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
                 </body>
                 </html>
                 """;
@@ -219,7 +245,7 @@ namespace OtobusBiletRezervasyon.Services
         {
             if (string.IsNullOrWhiteSpace(firstName))
             {
-                return "Yolcumuz";
+                return "Passenger";
             }
 
             return firstName.Trim();

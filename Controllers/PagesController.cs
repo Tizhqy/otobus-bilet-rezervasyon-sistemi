@@ -17,55 +17,55 @@ namespace OtobusBiletRezervasyon.Controllers
         public IActionResult Press()
         {
             ViewData["Title"] = "Press Room";
-            return View("Template");
+            return View();
         }
 
         public IActionResult Blog()
         {
             ViewData["Title"] = "Blog";
-            return View("Template");
+            return View();
         }
 
         public IActionResult HelpCenter()
         {
             ViewData["Title"] = "Help Center";
-            return View("Template");
+            return View();
         }
 
         public IActionResult Contact()
         {
             ViewData["Title"] = "Contact Us";
-            return View("Template");
+            return View();
         }
 
         public IActionResult RefundPolicy()
         {
             ViewData["Title"] = "Refund Policy";
-            return View("Template");
+            return View();
         }
 
         public IActionResult Faq()
         {
             ViewData["Title"] = "Frequently Asked Questions";
-            return View("Template");
+            return View();
         }
 
         public IActionResult Privacy()
         {
             ViewData["Title"] = "Privacy Policy";
-            return View("Template");
+            return View();
         }
 
         public IActionResult Terms()
         {
             ViewData["Title"] = "Terms of Use";
-            return View("Template");
+            return View();
         }
 
         public IActionResult CookiePolicy()
         {
             ViewData["Title"] = "Cookie Policy";
-            return View("Template");
+            return View();
         }
     }
 }

@@ -32,7 +32,7 @@ namespace OtobusBiletRezervasyon.Controllers
             var data = await _seferFlowService.GetBosAramaSayfasiAsync();
             ViewBag.Istasyonlar = data.Istasyonlar;
             ViewBag.AramaKriterleri = data.AramaKriterleri;
-            return View(data.Sonuclar);
+            return View(data);
         }
 
         #endregion
@@ -53,7 +53,7 @@ namespace OtobusBiletRezervasyon.Controllers
             ViewBag.KalkisIstasyonu = result.Data.KalkisIstasyonu;
             ViewBag.VarisIstasyonu = result.Data.VarisIstasyonu;
             ViewBag.Istasyonlar = result.Data.Istasyonlar;
-            return View("AramaSonuclari", result.Data.Sonuclar);
+            return View("AramaSonuclari", result.Data);
         }
 
         #endregion

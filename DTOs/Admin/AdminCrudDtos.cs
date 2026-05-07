@@ -3,17 +3,17 @@ using System.ComponentModel.DataAnnotations;
 namespace OtobusBiletRezervasyon.DTOs.Admin
 {
     /// <summary>
-    /// Admin Otobus ekleme/duzenleme icin DTO.
-    /// Mass assignment koruması saglar — sadece izin verilen alanlar bind edilir.
+    /// DTO for Admin Bus add/edit.
+    /// Provides mass assignment protection — only allowed fields are bound.
     /// </summary>
     public class AdminBusDto
     {
-        [Required(ErrorMessage = "Plaka numarasi zorunludur.")]
+        [Required(ErrorMessage = "Plate number is required.")]
         [MaxLength(20)]
         public string PlateNumber { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Kapasite zorunludur.")]
-        [Range(1, 100, ErrorMessage = "Kapasite 1-100 arasi olmalidir.")]
+        [Required(ErrorMessage = "Capacity is required.")]
+        [Range(1, 100, ErrorMessage = "Capacity must be between 1 and 100.")]
         public int Capacity { get; set; }
 
         [MaxLength(50)]
@@ -23,14 +23,14 @@ namespace OtobusBiletRezervasyon.DTOs.Admin
     }
 
     /// <summary>
-    /// Admin Rota ekleme/duzenleme icin DTO.
+    /// DTO for Admin Route add/edit.
     /// </summary>
     public class AdminRouteDto
     {
-        [Required(ErrorMessage = "Kalkis istasyonu zorunludur.")]
+        [Required(ErrorMessage = "Origin station is required.")]
         public int OriginStationId { get; set; }
 
-        [Required(ErrorMessage = "Varis istasyonu zorunludur.")]
+        [Required(ErrorMessage = "Destination station is required.")]
         public int DestinationStationId { get; set; }
 
         [Range(0, 10000)]
@@ -43,15 +43,15 @@ namespace OtobusBiletRezervasyon.DTOs.Admin
     }
 
     /// <summary>
-    /// Admin Istasyon ekleme/duzenleme icin DTO.
+    /// DTO for Admin Station add/edit.
     /// </summary>
     public class AdminStationDto
     {
-        [Required(ErrorMessage = "Istasyon adi zorunludur.")]
+        [Required(ErrorMessage = "Station name is required.")]
         [MaxLength(100)]
         public string Name { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Sehir zorunludur.")]
+        [Required(ErrorMessage = "City is required.")]
         [MaxLength(100)]
         public string City { get; set; } = string.Empty;
 
@@ -62,24 +62,24 @@ namespace OtobusBiletRezervasyon.DTOs.Admin
     }
 
     /// <summary>
-    /// Admin Sefer ekleme/duzenleme icin DTO.
+    /// DTO for Admin Departure add/edit.
     /// </summary>
     public class AdminDepartureDto
     {
-        [Required(ErrorMessage = "Rota zorunludur.")]
+        [Required(ErrorMessage = "Route is required.")]
         public int RouteId { get; set; }
 
-        [Required(ErrorMessage = "Otobus zorunludur.")]
+        [Required(ErrorMessage = "Bus is required.")]
         public int BusId { get; set; }
 
-        [Required(ErrorMessage = "Kalkis zamani zorunludur.")]
+        [Required(ErrorMessage = "Departure time is required.")]
         public DateTime DepartureTime { get; set; }
 
-        [Required(ErrorMessage = "Varis zamani zorunludur.")]
+        [Required(ErrorMessage = "Arrival time is required.")]
         public DateTime ArrivalTime { get; set; }
 
-        [Required(ErrorMessage = "Fiyat zorunludur.")]
-        [Range(0.01, 100000, ErrorMessage = "Fiyat 0'dan buyuk olmalidir.")]
+        [Required(ErrorMessage = "Price is required.")]
+        [Range(0.01, 100000, ErrorMessage = "Price must be greater than 0.")]
         public decimal Price { get; set; }
 
         public bool IsActive { get; set; } = true;

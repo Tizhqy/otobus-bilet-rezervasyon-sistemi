@@ -15,7 +15,7 @@
     var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
 }
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -74,7 +74,7 @@
                     </button>
                     @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <span style="font-weight:600;font-size:0.9rem;color:var(--text-dark);">@User.Identity?.Name</span>
+                        <a asp-controller="Auth" asp-action="Profil" style="font-weight:600;font-size:0.9rem;color:var(--text-dark);text-decoration:none;" class="me-2">@User.Identity?.Name</a>
                         <form asp-controller="Auth" asp-action="Cikis" method="post" class="d-inline">
                             @Html.AntiForgeryToken()
                             <button type="submit" class="btn btn-ghost">Logout</button>

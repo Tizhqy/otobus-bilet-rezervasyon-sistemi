@@ -24,6 +24,7 @@ namespace OtobusBiletRezervasyon
         public DbSet<PasswordReset> PasswordResets { get; set; }
         public DbSet<Coupon> Coupons { get; set; }
         public DbSet<CouponUsage> CouponUsages { get; set; }
+        public DbSet<TemporaryReservation> TemporaryReservations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -193,6 +194,23 @@ namespace OtobusBiletRezervasyon
             modelBuilder.Entity<CouponUsage>(entity =>
             {
                 entity.HasIndex(cu => new { cu.UserId, cu.CouponId }).IsUnique();
+            });
+
+            // TemporaryReservation configuration
+            modelBuilder.Entity<TemporaryReservation>(entity =>
+            {
+                entity.HasIndex(tr => tr.IdempotencyKey).IsUnique();
+                entity.HasIndex(tr => tr.ExpiresAt); // Quick cleanup query
+
+                entity.HasOne(tr => tr.User)
+                    .WithMany()
+                    .HasForeignKey(tr => tr.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(tr => tr.Departure)
+                    .WithMany()
+                    .HasForeignKey(tr => tr.DepartureId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

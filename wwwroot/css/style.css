@@ -112,6 +112,16 @@ body.dark-mode .btn-outline-primary:hover {
   border-color: var(--primary-light);
   color: #0f172a;
 }
+body.dark-mode .form-control,
+body.dark-mode .form-select {
+  background-color: var(--bg-white);
+  color: var(--text-body);
+  border-color: var(--border);
+}
+body.dark-mode ::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.8;
+}
 
 /* ── Toasts ── */
 .hamsibus-toast-container {
@@ -1145,6 +1155,65 @@ a { text-decoration: none; transition: var(--transition); }
   background: #fafbfc;
 }
 .data-table .table tbody tr:last-child td { border-bottom: none; }
+
+/* ── Dark Mode: Data Tables ── */
+body.dark-mode .data-table {
+  background: var(--bg-white);
+  border-color: var(--border);
+}
+body.dark-mode .data-table .table thead th {
+  background: #0f172a;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+body.dark-mode .data-table .table tbody td {
+  color: var(--text-body);
+  border-color: var(--border-light);
+}
+body.dark-mode .data-table .table tbody tr {
+  background: transparent;
+}
+body.dark-mode .data-table .table tbody tr:hover {
+  background: rgba(255,255,255,0.04);
+}
+body.dark-mode .data-table .table {
+  color: var(--text-body);
+}
+/* Bootstrap table overrides for dark mode */
+body.dark-mode .table {
+  --bs-table-bg: transparent;
+  background-color: transparent !important;
+  --bs-table-striped-bg: rgba(255,255,255,0.03);
+  --bs-table-hover-bg: rgba(255,255,255,0.05);
+  color: var(--text-body);
+  border-color: var(--border);
+}
+body.dark-mode .input-group-text {
+  background-color: var(--bg-white);
+  border-color: var(--border);
+  color: var(--text-body);
+}
+/* Pagination dark mode */
+body.dark-mode .page-link {
+  background-color: var(--bg-white);
+  border-color: var(--border);
+  color: var(--primary-light);
+}
+body.dark-mode .page-item.active .page-link {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+body.dark-mode .page-link:hover {
+  background-color: rgba(255,255,255,0.08);
+  border-color: var(--border);
+  color: var(--primary-light);
+}
+body.dark-mode .page-item.disabled .page-link {
+  background-color: transparent;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
 
 /* ── Badge ── */
 .badge-status {

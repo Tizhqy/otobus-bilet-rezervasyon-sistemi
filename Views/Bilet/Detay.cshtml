@@ -1,4 +1,5 @@
 @model OtobusBiletRezervasyon.DTOs.Ticket.TicketResponseDto
+@inject OtobusBiletRezervasyon.Services.Interfaces.IPdfTicketService PdfTicketService
 @{
     Layout = "_Layout";
     ViewData["Title"] = "Bilet Detay";
@@ -83,7 +84,20 @@
                         <span>Created</span>
                         <span>@Model.CreatedAt.ToString("dd MMM yyyy HH:mm")</span>
                     </div>
-                    <a asp-controller="Bilet" asp-action="Liste" class="btn btn-outline-HamsiBus w-100 mt-3">Back to list</a>
+
+                    <hr />
+                    
+                    <div class="text-center mt-3 mb-3">
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">Your E-Ticket QR Code</div>
+                        <div class="d-inline-block p-2 bg-white border rounded">
+                            <img src="@PdfTicketService.GenerateQrCodeBase64DataUri(Model)" alt="Ticket QR Code" style="width: 150px; height: 150px;" />
+                        </div>
+                    </div>
+
+                    <a asp-controller="Bilet" asp-action="Indir" asp-route-id="@Model.Id" class="btn btn-primary-HamsiBus w-100 mt-2 mb-2">
+                        <i data-lucide="download" style="width:18px;height:18px;margin-right:6px;"></i> Download Ticket (PDF)
+                    </a>
+                    <a asp-controller="Bilet" asp-action="Liste" class="btn btn-outline-HamsiBus w-100">Back to list</a>
                 </div>
             </div>
         </div>

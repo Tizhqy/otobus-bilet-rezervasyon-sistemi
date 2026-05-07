@@ -189,6 +189,11 @@ namespace OtobusBiletRezervasyon.Services
             return await _departureRepository.GetUpcomingAsync(count);
         }
 
+        public async Task<(IReadOnlyList<Departure> Departures, int TotalCount)> GetUpcomingDeparturesPageAsync(string? search, int page, int pageSize)
+        {
+            return await _departureRepository.GetPagedUpcomingAsync(search, page, pageSize);
+        }
+
         public async Task<Departure?> GetDepartureByIdAsync(int id)
         {
             return await _departureRepository.GetByIdWithDetailsAsync(id);
@@ -229,7 +234,7 @@ namespace OtobusBiletRezervasyon.Services
         public async Task<Departure> UpdateDeparturePriceAsync(int departureId, decimal newPrice)
         {
             if (newPrice <= 0m)
-                throw new InvalidOperationException("Fiyat 0'dan buyuk olmalidir.");
+                throw new InvalidOperationException("Price must be greater than 0.");
 
             return await ExecuteInTransactionAsync(async () =>
             {
@@ -237,12 +242,12 @@ namespace OtobusBiletRezervasyon.Services
                     .FirstOrDefaultAsync(d => d.Id == departureId);
 
                 if (departure == null)
-                    throw new InvalidOperationException("Sefer bulunamadi.");
+                    throw new InvalidOperationException("Departure not found.");
 
                 if (!departure.IsActive || departure.DepartureTime <= DateTime.UtcNow)
                 {
                     throw new InvalidOperationException(
-                        "Sadece aktif ve yaklasan seferlerin fiyati guncellenebilir.");
+                        "Only prices of active and upcoming departures can be updated.");
                 }
 
                 departure.Price = NormalizePrice(newPrice);
@@ -260,7 +265,7 @@ namespace OtobusBiletRezervasyon.Services
             decimal value)
         {
             if (value <= 0m)
-                throw new InvalidOperationException("Guncelleme degeri 0'dan buyuk olmalidir.");
+                throw new InvalidOperationException("Update value must be greater than 0.");
 
             return await ExecuteInTransactionAsync(async () =>
             {
@@ -331,7 +336,7 @@ namespace OtobusBiletRezervasyon.Services
             if (hasConflict)
             {
                 throw new InvalidOperationException(
-                    "Bu otobus ayni tarih/saat araliginda baska bir sefere atanmis.");
+                    "This bus is already assigned to another departure in the same time range.");
             }
         }
 

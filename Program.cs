@@ -134,6 +134,7 @@ builder.Services.AddScoped<ISeatRepository, SeatRepository>();
 builder.Services.AddScoped<IDepartureRepository, DepartureRepository>();
 builder.Services.AddScoped<ILogRepository, LogRepository>();
 builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddScoped<ITemporaryReservationRepository, TemporaryReservationRepository>();
 
 // ── Service Kayitlari ────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -148,9 +149,15 @@ builder.Services.AddScoped<IOdemeFlowService, OdemeFlowService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
 builder.Services.AddScoped<ISeferFlowService, SeferFlowService>();
 builder.Services.AddScoped<IAdminFlowService, AdminFlowService>();
+builder.Services.AddScoped<IReservationFlowService, ReservationFlowService>();
+builder.Services.AddScoped<IPdfTicketService, PdfTicketService>();
+
+// ── Background Services ──────────────────────────────────────────────────────
+builder.Services.AddHostedService<OtobusBiletRezervasyon.Services.BackgroundJobs.ReservationCleanupService>();
 
 // ── Diger Servisler ──────────────────────────────────────────────────────────
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>();
 builder.Services.AddControllersWithViews(opt =>
 {
     opt.Filters.Add(new Microsoft.AspNetCore.Mvc.AutoValidateAntiforgeryTokenAttribute());
@@ -280,6 +287,9 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+// ── QuestPDF License ──────────────────────────────────────────────────────────
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 var app = builder.Build();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
@@ -343,6 +353,8 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Sefer}/{action=Index}/{id?}");
+
+app.MapHealthChecks("/health");
 
 // ── DB Migration & Seed ──────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())

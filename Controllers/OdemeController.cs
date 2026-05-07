@@ -50,7 +50,7 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             if (!ModelState.IsValid)
             {
-                TempData["Hata"] = "Odeme bilgileri gecersiz.";
+                TempData["Hata"] = "Invalid payment details.";
                 return RedirectToAction("Odeme", new { biletId = request.BiletId });
             }
 
@@ -72,7 +72,7 @@ namespace OtobusBiletRezervasyon.Controllers
                 };
             }
 
-            TempData["Basari"] = $"Odeme basarili! Referans: {result.Data!.ReferenceNo}";
+            TempData["Basari"] = $"Payment successful! Reference: {result.Data!.ReferenceNo}";
             return RedirectToAction("Detay", "Bilet", new { id = request.BiletId });
         }
 
@@ -114,7 +114,7 @@ namespace OtobusBiletRezervasyon.Controllers
         public async Task<IActionResult> UygulaKupon([FromBody] UygulaKuponIstekDto request)
         {
             if (!ModelState.IsValid)
-                return BadRequest("Geçersiz istek");
+                return BadRequest("Invalid request");
 
             int userId = GetCurrentUserId();
             var result = await _odemeFlowService.UygulaKuponAsync(request.BiletId, userId, request.KuponKodu);

@@ -50,7 +50,7 @@ namespace OtobusBiletRezervasyon.Repositories
                 .Include(d => d.Route)
                     .ThenInclude(r => r.DestinationStation)
                 .Include(d => d.Bus)
-                .Where(d => d.IsActive && d.DepartureTime > DateTime.UtcNow)
+                .Where(d => d.IsActive && d.DepartureTime > DateTime.Now)
                 .OrderBy(d => d.DepartureTime)
                 .ToListAsync();
         }
@@ -102,7 +102,7 @@ namespace OtobusBiletRezervasyon.Repositories
                     && d.Route.DestinationStationId == destinationStationId
                     && d.DepartureTime >= startOfDay
                     && d.DepartureTime < endOfDay
-                    && d.DepartureTime > DateTime.UtcNow)
+                    && d.DepartureTime > DateTime.Now)
                 .OrderBy(d => d.DepartureTime)
                 .ToListAsync();
         }
@@ -133,10 +133,45 @@ namespace OtobusBiletRezervasyon.Repositories
                 .Include(d => d.Route)
                     .ThenInclude(r => r.DestinationStation)
                 .Include(d => d.Bus)
-                .Where(d => d.IsActive && d.DepartureTime > DateTime.UtcNow)
+                .Where(d => d.IsActive && d.DepartureTime > DateTime.Now)
                 .OrderBy(d => d.DepartureTime)
                 .Take(count)
                 .ToListAsync();
+        }
+
+        public async Task<(IReadOnlyList<Departure> Departures, int TotalCount)> GetPagedUpcomingAsync(string? search, int page, int pageSize)
+        {
+            var safePage = page < 1 ? 1 : page;
+            var safePageSize = pageSize < 1 ? 15 : pageSize;
+
+            var query = _context.Departures
+                .Include(d => d.Route)
+                    .ThenInclude(r => r!.OriginStation)
+                .Include(d => d.Route)
+                    .ThenInclude(r => r!.DestinationStation)
+                .Include(d => d.Bus)
+                .Where(d => d.IsActive && d.DepartureTime > DateTime.Now)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var searchTrimmed = search.Trim();
+                query = query.Where(d =>
+                    d.Id.ToString().Contains(searchTrimmed) ||
+                    (d.Bus != null && d.Bus.PlateNumber.Contains(searchTrimmed)) ||
+                    (d.Route != null && d.Route.OriginStation != null && d.Route.OriginStation.City != null && d.Route.OriginStation.City.Contains(searchTrimmed)) ||
+                    (d.Route != null && d.Route.DestinationStation != null && d.Route.DestinationStation.City != null && d.Route.DestinationStation.City.Contains(searchTrimmed)));
+            }
+
+            var totalCount = await query.CountAsync();
+
+            var departures = await query
+                .OrderBy(d => d.DepartureTime)
+                .Skip((safePage - 1) * safePageSize)
+                .Take(safePageSize)
+                .ToListAsync();
+
+            return (departures, totalCount);
         }
 
         // Route
@@ -276,6 +311,23 @@ namespace OtobusBiletRezervasyon.Repositories
             _context.Buses.Remove(bus);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        /// <summary>
+        /// Finds the maximum price among all upcoming departures using SQL.
+        /// Independent of pagination, works on the entire database.
+        /// </summary>
+        public async Task<decimal> GetMaxPriceAsync()
+        {
+            var departures = await _context.Departures
+                .Where(d => d.IsActive && d.DepartureTime > DateTime.Now)
+                .Select(d => d.Price)
+                .ToListAsync();
+
+            if (!departures.Any())
+                return 100m;
+
+            return departures.Max();
         }
     }
 }

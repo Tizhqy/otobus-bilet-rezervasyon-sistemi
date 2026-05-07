@@ -51,7 +51,7 @@ namespace OtobusBiletRezervasyon.Controllers
 
             await _logService.LogRegistrationAsync(result.User!.Id, GetClientIpAddress());
 
-            TempData["Basari"] = "Kayit basarili. Giris yapabilirsiniz.";
+            TempData["Basari"] = "Registration successful. You can now log in.";
             return RedirectToAction("Giris");
         }
 
@@ -137,8 +137,16 @@ namespace OtobusBiletRezervasyon.Controllers
 
             if (userId > 0)
             {
-                await _authService.RevokeRememberTokenAsync(userId);
-                await _logService.LogLogoutAsync(userId, GetClientIpAddress());
+                try
+                {
+                    await _authService.RevokeRememberTokenAsync(userId);
+                    await _logService.LogLogoutAsync(userId, GetClientIpAddress());
+                }
+                catch (Exception)
+                {
+                    // If the user has been deleted from the database (e.g., database reset) or 
+                    // if another logging error occurs, swallow the error so the user isn't blocked from logging out.
+                }
             }
 
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -165,13 +173,13 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             if (string.IsNullOrWhiteSpace(email))
             {
-                ModelState.AddModelError(string.Empty, "E-posta adresi gereklidir.");
+                ModelState.AddModelError(string.Empty, "Email address is required.");
                 return View();
             }
 
             await _authService.RequestPasswordResetAsync(email);
 
-            TempData["Bilgi"] = "Kayitli e-posta adresinize sifirlama baglantisi gonderildi.";
+            TempData["Bilgi"] = "A password reset link has been sent to your registered email address.";
             return View();
         }
 
@@ -184,14 +192,14 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             if (string.IsNullOrWhiteSpace(token))
             {
-                TempData["Hata"] = "Gecersiz sifirlama baglantisi.";
+                TempData["Hata"] = "Invalid password reset link.";
                 return RedirectToAction("Giris");
             }
 
             var isValidToken = await _authService.IsPasswordResetTokenValidAsync(token);
             if (!isValidToken)
             {
-                TempData["Hata"] = "Gecersiz veya suresi dolmus baglanti.";
+                TempData["Hata"] = "Invalid or expired reset link.";
                 return RedirectToAction("Giris");
             }
 
@@ -206,13 +214,13 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             if (string.IsNullOrWhiteSpace(token))
             {
-                TempData["Hata"] = "Gecersiz sifirlama baglantisi.";
+                TempData["Hata"] = "Invalid password reset link.";
                 return RedirectToAction("Giris");
             }
 
             if (yeniSifre != yeniSifreTekrar)
             {
-                ModelState.AddModelError(string.Empty, "Sifreler eslesmiyor.");
+                ModelState.AddModelError(string.Empty, "Passwords do not match.");
                 ViewBag.Token = token;
                 return View();
             }
@@ -220,7 +228,7 @@ namespace OtobusBiletRezervasyon.Controllers
             if (!IsStrongPassword(yeniSifre))
             {
                 ModelState.AddModelError(string.Empty,
-                    $"Sifre en az {AppConfig.MinPasswordLength} karakter olmali; en az bir buyuk harf, bir kucuk harf ve bir rakam icermelidir.");
+                    $"Password must be at least {AppConfig.MinPasswordLength} characters long; and must contain at least one uppercase letter, one lowercase letter, and one number.");
                 ViewBag.Token = token;
                 return View();
             }
@@ -229,11 +237,11 @@ namespace OtobusBiletRezervasyon.Controllers
 
             if (!success)
             {
-                TempData["Hata"] = "Gecersiz veya suresi dolmus baglanti.";
+                TempData["Hata"] = "Invalid or expired reset link.";
                 return RedirectToAction("Giris");
             }
 
-            TempData["Basari"] = "Sifreniz guncellendi. Giris yapabilirsiniz.";
+            TempData["Basari"] = "Your password has been updated. You can now log in.";
             return RedirectToAction("Giris");
         }
 
@@ -262,13 +270,13 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             if (yeniSifre != yeniSifreTekrar)
             {
-                TempData["Hata"] = "Yeni sifreler eslesmiyor.";
+                TempData["Hata"] = "New passwords do not match.";
                 return RedirectToAction("Profil");
             }
 
             if (!IsStrongPassword(yeniSifre))
             {
-                TempData["Hata"] = $"Yeni sifre en az {AppConfig.MinPasswordLength} karakter olmali; en az bir buyuk harf, bir kucuk harf ve bir rakam icermelidir.";
+                TempData["Hata"] = $"New password must be at least {AppConfig.MinPasswordLength} characters long; and must contain at least one uppercase letter, one lowercase letter, and one number.";
                 return RedirectToAction("Profil");
             }
 
@@ -277,13 +285,13 @@ namespace OtobusBiletRezervasyon.Controllers
 
             if (!success)
             {
-                await _logService.LogAsync(userId, "PASSWORD_CHANGE_FAILED", "Mevcut sifre dogrulamasi basarisiz.", GetClientIpAddress());
-                TempData["Hata"] = "Mevcut sifre hatali.";
+                await _logService.LogAsync(userId, "PASSWORD_CHANGE_FAILED", "Current password verification failed.", GetClientIpAddress());
+                TempData["Hata"] = "Current password is incorrect.";
                 return RedirectToAction("Profil");
             }
 
             await _logService.LogPasswordChangeAsync(userId, GetClientIpAddress());
-            TempData["Basari"] = "Sifreniz basariyla degistirildi.";
+            TempData["Basari"] = "Your password has been successfully changed.";
             return RedirectToAction("Profil");
         }
 

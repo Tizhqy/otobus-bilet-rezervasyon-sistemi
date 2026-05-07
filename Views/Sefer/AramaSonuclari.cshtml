@@ -1,20 +1,20 @@
-@model IEnumerable<OtobusBiletRezervasyon.DTOs.Search.DepartureResponseDto>
+@model OtobusBiletRezervasyon.DTOs.ViewModels.SeferAramaContextViewModel
 @using OtobusBiletRezervasyon.DTOs.Search
 @using System.Globalization
 @{
     Layout = "_Layout";
-    ViewData["Title"] = "Arama Sonuclari";
-    var kriter = ViewBag.AramaKriterleri as SearchQueryDto ?? new SearchQueryDto { TravelDate = DateTime.Today, PassengerCount = 1 };
-    var sonuclar = (Model ?? Enumerable.Empty<DepartureResponseDto>()).ToList();
-    var kalkis = ViewBag.KalkisIstasyonu as StationInfoDto;
-    var varis = ViewBag.VarisIstasyonu as StationInfoDto;
+    ViewData["Title"] = "Search Results";
+    var kriter = Model?.AramaKriterleri ?? new SearchQueryDto { TravelDate = DateTime.Today, PassengerCount = 1 };
+    var sonuclar = (Model?.Sonuclar ?? Enumerable.Empty<DepartureResponseDto>()).ToList();
+    var kalkis = Model?.KalkisIstasyonu;
+    var varis = Model?.VarisIstasyonu;
     var kalkisLabel = kalkis?.City ?? (sonuclar.Any() ? "All routes" : "-");
     var varisLabel = varis?.City ?? (sonuclar.Any() ? "All routes" : "-");
     var rotaOzet = (kalkis != null && varis != null) ? $"{kalkis.City} to {varis.City}" : (sonuclar.Any() ? "All routes" : "- to -");
     var minPrice = sonuclar.Any() ? Math.Floor(sonuclar.Min(s => s.Price)) : 0m;
-    var maxPrice = sonuclar.Any() ? Math.Ceiling(sonuclar.Max(s => s.Price)) : 0m;
+    var maxPrice = Model?.MaxPrice ?? (sonuclar.Any() ? Math.Ceiling(sonuclar.Max(s => s.Price)) : 100m);
     var sliderMin = sonuclar.Any() ? (int)Math.Max(0m, minPrice) : 0;
-    var sliderMax = sonuclar.Any() ? (int)Math.Max(sliderMin + 1, maxPrice) : 0;
+    var sliderMax = (int)Math.Max(sliderMin + 1, maxPrice);
     var cokluTarihVar = sonuclar.Select(s => s.DepartureTime.Date).Distinct().Skip(1).Any();
     var tarihLabel = cokluTarihVar ? "Multiple dates" : kriter.TravelDate.ToString("dd MMM yyyy");
     var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
@@ -203,6 +203,20 @@
                         </div>
                     }
                 </div>
+
+                <!-- Pagination Controls -->
+                @if (sonuclar.Count > 10)
+                {
+                    <div class="d-flex justify-content-center align-items-center gap-3 mt-4" id="paginationControls" style="display: none;">
+                        <button class="btn btn-sm btn-outline-primary" id="prevBtn" disabled>
+                            <i data-lucide="chevron-left" style="width:16px;height:16px;"></i> Previous
+                        </button>
+                        <span id="pageInfo" class="text-muted" style="min-width: 150px; text-align: center; font-size: 0.9rem;"></span>
+                        <button class="btn btn-sm btn-outline-primary" id="nextBtn">
+                            Next <i data-lucide="chevron-right" style="width:16px;height:16px;"></i>
+                        </button>
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -218,10 +232,65 @@
             const resultCards = Array.from(document.querySelectorAll("#resultsContainer .result-card[data-price]"));
             const filterNoResultState = document.getElementById("filterNoResultState");
             const layoutFilters = document.querySelectorAll(".layout-filter");
+            
+            // Pagination variables
+            const resultsPerPage = 10;
+            let currentPage = 1;
+            const paginationControls = document.getElementById("paginationControls");
+            const prevBtn = document.getElementById("prevBtn");
+            const nextBtn = document.getElementById("nextBtn");
+            const pageInfo = document.getElementById("pageInfo");
 
             function updatePriceLabel(value) {
                 if (!priceLabel) return;
                 priceLabel.textContent = "Up to $" + Number(value).toFixed(0);
+            }
+
+            function getFilteredCards() {
+                return resultCards.filter(card => card.dataset.filtered === "true");
+            }
+
+            function showPage(page) {
+                const filteredCards = getFilteredCards();
+                const totalPages = Math.ceil(filteredCards.length / resultsPerPage);
+
+                if (filteredCards.length === 0) {
+                    if (pageInfo) pageInfo.textContent = "";
+                    if (prevBtn) prevBtn.disabled = true;
+                    if (nextBtn) nextBtn.disabled = true;
+                    return;
+                }
+                
+                if (page < 1) page = 1;
+                if (page > totalPages && totalPages > 0) page = totalPages;
+
+                const start = (page - 1) * resultsPerPage;
+                const end = start + resultsPerPage;
+
+                filteredCards.forEach((card, index) => {
+                    card.style.display = index >= start && index < end ? "" : "none";
+                });
+
+                if (pageInfo && totalPages > 0) {
+                    pageInfo.textContent = `Page ${page} of ${totalPages} • Showing ${Math.min(filteredCards.length - start, resultsPerPage)} of ${filteredCards.length}`;
+                }
+
+                if (prevBtn) prevBtn.disabled = page <= 1;
+                if (nextBtn) nextBtn.disabled = page >= totalPages;
+
+                currentPage = page;
+            }
+
+            function updatePaginationVisibility() {
+                const filteredCards = getFilteredCards();
+                if (paginationControls) {
+                    paginationControls.style.display = filteredCards.length > resultsPerPage ? "" : "none";
+                }
+                if (filteredCards.length > 0) {
+                    showPage(1);
+                } else if (pageInfo) {
+                    pageInfo.textContent = "";
+                }
             }
 
             function applyFilters() {
@@ -241,10 +310,11 @@
                     const priceMatch = cardPrice <= selectedMaxPrice;
                     const layoutMatch = layoutFilters.length === 0 || selectedLayouts.includes(cardLayout);
                     
-                    const isVisible = priceMatch && layoutMatch;
+                    const isFiltered = priceMatch && layoutMatch;
                     
-                    card.style.display = isVisible ? "" : "none";
-                    if (isVisible) visibleCount++;
+                    card.dataset.filtered = isFiltered ? "true" : "false";
+                    card.style.display = isFiltered ? "" : "none";
+                    if (isFiltered) visibleCount++;
                 });
 
                 if (foundCount) {
@@ -254,6 +324,8 @@
                 if (filterNoResultState) {
                     filterNoResultState.style.display = visibleCount === 0 ? "" : "none";
                 }
+
+                updatePaginationVisibility();
 
                 if (typeof lucide !== "undefined") {
                     lucide.createIcons();
@@ -286,6 +358,20 @@
 
             if (resetButton) {
                 resetButton.addEventListener("click", resetFilters);
+            }
+
+            if (prevBtn) {
+                prevBtn.addEventListener("click", function () {
+                    showPage(currentPage - 1);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                });
+            }
+
+            if (nextBtn) {
+                nextBtn.addEventListener("click", function () {
+                    showPage(currentPage + 1);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                });
             }
             
             // Initial run

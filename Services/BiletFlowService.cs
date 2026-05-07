@@ -33,14 +33,14 @@ namespace OtobusBiletRezervasyon.Services
         public async Task<ServiceResult<TicketResponseDto>> GetTicketDetayForUserAsync(int ticketId, int userId, bool isAdmin)
         {
             if (ticketId <= 0)
-                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.NotFound, "Bilet bulunamadi.");
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.NotFound, "Ticket not found.");
 
             var ticket = await _ticketService.GetTicketByIdAsync(ticketId);
             if (ticket == null)
-                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.NotFound, "Bilet bulunamadi.");
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.NotFound, "Ticket not found.");
 
             if (ticket.UserId != userId && !isAdmin)
-                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.Forbidden, "Bu bilete erisim yetkiniz yok.");
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.Forbidden, "You do not have permission to access this ticket.");
 
             return ServiceResult<TicketResponseDto>.Ok(ticket);
         }
@@ -48,24 +48,24 @@ namespace OtobusBiletRezervasyon.Services
         public async Task<ServiceResult<BiletSatinAlViewModel>> HazirlaSatinAlSayfasiAsync(int seferId, int[] koltukIds)
         {
             if (seferId <= 0 || koltukIds == null || !koltukIds.Any())
-                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.ValidationError, "Gecersiz sefer veya koltuk bilgisi.");
+                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.ValidationError, "Invalid departure or seat information.");
 
             if (koltukIds.Length > AppConfig.MaxPassengerPerTicket)
-                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.ValidationError, $"En fazla {AppConfig.MaxPassengerPerTicket} koltuk secebilirsiniz.");
+                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.ValidationError, $"You can select up to {AppConfig.MaxPassengerPerTicket} seats.");
 
             var areAvailable = await _ticketService.AreSeatAvailableAsync(seferId, koltukIds);
             if (!areAvailable)
-                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.Conflict, "Sectiginiz koltuklardan biri veya birkaci dolu. Lutfen baska koltuk secin.");
+                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.Conflict, "One or more selected seats are taken. Please choose another seat.");
 
             var departure = await _searchService.GetDepartureByIdAsync(seferId);
             if (departure == null)
-                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
+                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.NotFound, "Departure not found.");
 
             if (AppConfig.IsTicketSalesClosed(departure.DepartureTime))
             {
                 return ServiceResult<BiletSatinAlViewModel>.Fail(
                     ServiceResultType.Expired,
-                    $"Bu sefer icin bilet satisi kalkisa {AppConfig.TicketSalesCutoffMinutesBeforeDeparture} dakikadan az kala kapatilir.");
+                    $"Ticket sales for this departure are closed within {AppConfig.TicketSalesCutoffMinutesBeforeDeparture} minutes of departure.");
             }
 
             var seats = await _searchService.GetSeatsForDepartureAsync(seferId);
@@ -109,7 +109,7 @@ namespace OtobusBiletRezervasyon.Services
             var departure = await _searchService.GetDepartureByIdAsync(formDto.DepartureId);
 
             if (departure == null)
-                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
+                return ServiceResult<BiletSatinAlViewModel>.Fail(ServiceResultType.NotFound, "Departure not found.");
 
             var seats = await _searchService.GetSeatsForDepartureAsync(formDto.DepartureId);
             var selectedSeats = seats.Where(s => selectedSeatIds.Contains(s.Id)).ToList();
@@ -130,21 +130,21 @@ namespace OtobusBiletRezervasyon.Services
             createTicketDto.Payment ??= new PaymentInfoDto();
 
             if (!createTicketDto.Passengers.Any())
-                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.ValidationError, "En az bir yolcu bilgisi gerekli.");
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.ValidationError, "At least one passenger information is required.");
 
             var departure = await _searchService.GetDepartureByIdAsync(createTicketDto.DepartureId);
             if (departure == null)
-                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.NotFound, "Departure not found.");
 
             if (AppConfig.IsTicketSalesClosed(departure.DepartureTime))
             {
                 return ServiceResult<TicketResponseDto>.Fail(
                     ServiceResultType.Expired,
-                    $"Bu sefer icin bilet satisi kalkisa {AppConfig.TicketSalesCutoffMinutesBeforeDeparture} dakikadan az kala kapatilir.");
+                    $"Ticket sales for this departure are closed within {AppConfig.TicketSalesCutoffMinutesBeforeDeparture} minutes of departure.");
             }
 
             if (!TryNormalizePaymentMethod(createTicketDto.Payment.Method, out var normalizedMethod))
-                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.ValidationError, "Gecersiz odeme yontemi.");
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.ValidationError, "Invalid payment method.");
 
             createTicketDto.Payment.Method = normalizedMethod;
             createTicketDto.Payment.Amount = departure.Price * createTicketDto.Passengers.Count;
@@ -163,7 +163,7 @@ namespace OtobusBiletRezervasyon.Services
             }
             catch
             {
-                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.Error, "Bilet satin alinirken bir hata olustu. Lutfen tekrar deneyin.");
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.Error, "An error occurred while purchasing the ticket. Please try again.");
             }
         }
 
@@ -177,11 +177,11 @@ namespace OtobusBiletRezervasyon.Services
             string odemeYontemi)
         {
             if (string.IsNullOrWhiteSpace(yolcuAd) || string.IsNullOrWhiteSpace(yolcuSoyad))
-                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.ValidationError, "Yolcu adi ve soyadi zorunludur.");
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.ValidationError, "Passenger first and last name are required.");
 
             var isAvailable = await _ticketService.IsSeatAvailableAsync(seferId, koltukId);
             if (!isAvailable)
-                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.Conflict, "Bu koltuk artik musait degil.");
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.Conflict, "This seat is no longer available.");
 
             var dto = new CreateTicketDto
             {
@@ -209,7 +209,7 @@ namespace OtobusBiletRezervasyon.Services
         public async Task<ServiceResult> IptalAsync(int ticketId, int userId)
         {
             if (ticketId <= 0)
-                return ServiceResult.Fail(ServiceResultType.NotFound, "Bilet bulunamadi.");
+                return ServiceResult.Fail(ServiceResultType.NotFound, "Ticket not found.");
 
             try
             {
@@ -218,15 +218,15 @@ namespace OtobusBiletRezervasyon.Services
                 {
                     return ServiceResult.Fail(
                         ServiceResultType.Conflict,
-                        $"Bilet iptal edilemedi. Bilet bulunamadi, zaten iptal edilmis veya kalkisa {AppConfig.MinCancellationMinutesBeforeDeparture} dakikadan az kalmis olabilir.");
+                        $"Ticket could not be cancelled. It might not be found, already cancelled, or departure is within {AppConfig.MinCancellationMinutesBeforeDeparture} minutes.");
                 }
 
                 await _logService.LogTicketCancellationAsync(userId, ticketId, GetClientIpAddress());
-                return ServiceResult.Ok("Biletiniz iptal edildi.");
+                return ServiceResult.Ok("Your ticket has been cancelled.");
             }
             catch (UnauthorizedAccessException)
             {
-                return ServiceResult.Fail(ServiceResultType.Forbidden, "Bu bilet icin iptal yetkiniz yok.");
+                return ServiceResult.Fail(ServiceResultType.Forbidden, "You do not have permission to cancel this ticket.");
             }
             catch (InvalidOperationException ex)
             {
@@ -234,7 +234,7 @@ namespace OtobusBiletRezervasyon.Services
             }
             catch
             {
-                return ServiceResult.Fail(ServiceResultType.Error, "Bilet iptal edilirken bir hata olustu.");
+                return ServiceResult.Fail(ServiceResultType.Error, "An error occurred while cancelling the ticket.");
             }
         }
 

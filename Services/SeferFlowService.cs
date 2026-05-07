@@ -16,6 +16,8 @@ namespace OtobusBiletRezervasyon.Services
 
         public async Task<SeferIndexViewModel> GetIndexDataAsync()
         {
+            var maxPrice = await _searchService.GetMaxPriceForUpcomingDeparturesAsync();
+            
             return new SeferIndexViewModel
             {
                 Istasyonlar = await _searchService.GetAllStationsAsync(),
@@ -24,13 +26,15 @@ namespace OtobusBiletRezervasyon.Services
                 {
                     TravelDate = DateTime.Today.AddDays(1),
                     PassengerCount = 1
-                }
+                },
+                MaxPrice = maxPrice
             };
         }
 
         public async Task<SeferAramaContextViewModel> GetBosAramaSayfasiAsync()
         {
             var upcomingDepartures = await _searchService.GetUpcomingDeparturesAsync(AppConfig.DefaultUpcomingDepartureCount);
+            var maxPrice = await _searchService.GetMaxPriceForUpcomingDeparturesAsync();
 
             return new SeferAramaContextViewModel
             {
@@ -40,7 +44,8 @@ namespace OtobusBiletRezervasyon.Services
                     TravelDate = DateTime.Today,
                     PassengerCount = 1
                 },
-                Sonuclar = upcomingDepartures
+                Sonuclar = upcomingDepartures,
+                MaxPrice = maxPrice
             };
         }
 
@@ -50,21 +55,21 @@ namespace OtobusBiletRezervasyon.Services
             {
                 return ServiceResult<SeferAramaContextViewModel>.Fail(
                     ServiceResultType.ValidationError,
-                    "Lutfen kalkis ve varis istasyonlarini secin.");
+                    "Please select origin and destination stations.");
             }
 
             if (searchQuery.OriginStationId == searchQuery.DestinationStationId)
             {
                 return ServiceResult<SeferAramaContextViewModel>.Fail(
                     ServiceResultType.ValidationError,
-                    "Kalkis ve varis istasyonlari ayni olamaz.");
+                    "Origin and destination stations cannot be the same.");
             }
 
             if (searchQuery.TravelDate.Date < DateTime.Today)
             {
                 return ServiceResult<SeferAramaContextViewModel>.Fail(
                     ServiceResultType.ValidationError,
-                    "Gecmis tarih secilemez.");
+                    "Past dates cannot be selected.");
             }
 
             if (searchQuery.PassengerCount <= 0)
@@ -72,6 +77,7 @@ namespace OtobusBiletRezervasyon.Services
 
             var departures = await _searchService.SearchDeparturesAsync(searchQuery);
             var allStations = await _searchService.GetAllStationsAsync();
+            var maxPrice = await _searchService.GetMaxPriceForUpcomingDeparturesAsync();
 
             var context = new SeferAramaContextViewModel
             {
@@ -79,7 +85,8 @@ namespace OtobusBiletRezervasyon.Services
                 Istasyonlar = allStations,
                 Sonuclar = departures,
                 KalkisIstasyonu = allStations.FirstOrDefault(s => s.Id == searchQuery.OriginStationId),
-                VarisIstasyonu = allStations.FirstOrDefault(s => s.Id == searchQuery.DestinationStationId)
+                VarisIstasyonu = allStations.FirstOrDefault(s => s.Id == searchQuery.DestinationStationId),
+                MaxPrice = maxPrice
             };
 
             return ServiceResult<SeferAramaContextViewModel>.Ok(context);
@@ -88,17 +95,17 @@ namespace OtobusBiletRezervasyon.Services
         public async Task<ServiceResult<SeferDetayViewModel>> GetDetayAsync(int seferId)
         {
             if (seferId <= 0)
-                return ServiceResult<SeferDetayViewModel>.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
+                return ServiceResult<SeferDetayViewModel>.Fail(ServiceResultType.NotFound, "Departure not found.");
 
             var departure = await _searchService.GetDepartureByIdAsync(seferId);
             if (departure == null)
-                return ServiceResult<SeferDetayViewModel>.Fail(ServiceResultType.NotFound, "Sefer bulunamadi.");
+                return ServiceResult<SeferDetayViewModel>.Fail(ServiceResultType.NotFound, "Departure not found.");
 
             if (departure.DepartureTime <= DateTime.UtcNow)
             {
                 return ServiceResult<SeferDetayViewModel>.Fail(
                     ServiceResultType.Conflict,
-                    "Bu sefer icin bilet satisi sona ermistir.");
+                    "Ticket sales for this departure have ended.");
             }
 
             var seats = await _searchService.GetSeatsForDepartureAsync(seferId);
@@ -109,7 +116,7 @@ namespace OtobusBiletRezervasyon.Services
         public async Task<ServiceResult<IEnumerable<SeatInfoDto>>> GetKoltukDurumuAsync(int seferId)
         {
             if (seferId <= 0)
-                return ServiceResult<IEnumerable<SeatInfoDto>>.Fail(ServiceResultType.ValidationError, "Gecersiz sefer ID.");
+                return ServiceResult<IEnumerable<SeatInfoDto>>.Fail(ServiceResultType.ValidationError, "Invalid departure ID.");
 
             var seats = await _searchService.GetSeatsForDepartureAsync(seferId);
             return ServiceResult<IEnumerable<SeatInfoDto>>.Ok(seats);
@@ -118,7 +125,7 @@ namespace OtobusBiletRezervasyon.Services
         public async Task<ServiceResult<IEnumerable<SeatInfoDto>>> GetMusaitKoltuklarAsync(int seferId)
         {
             if (seferId <= 0)
-                return ServiceResult<IEnumerable<SeatInfoDto>>.Fail(ServiceResultType.ValidationError, "Gecersiz sefer ID.");
+                return ServiceResult<IEnumerable<SeatInfoDto>>.Fail(ServiceResultType.ValidationError, "Invalid departure ID.");
 
             var seats = await _searchService.GetAvailableSeatsForDepartureAsync(seferId);
             return ServiceResult<IEnumerable<SeatInfoDto>>.Ok(seats);
