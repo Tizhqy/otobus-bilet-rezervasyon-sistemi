@@ -47,7 +47,7 @@ namespace OtobusBiletRezervasyon.Services
             {
                 if (ticket.CreatedAt.AddMinutes(AppConfig.PaymentTimeoutMinutes) < DateTime.UtcNow)
                 {
-                    await _ticketService.CancelTicketAsync(ticketId, userId);
+                    await _ticketService.CancelTicketAsync(ticketId, ticket.UserId);
                     await _logService.LogTicketCancellationAsync(userId, ticketId, GetClientIpAddress());
                     
                     ticket = await _ticketService.GetTicketByIdAsync(ticketId);
