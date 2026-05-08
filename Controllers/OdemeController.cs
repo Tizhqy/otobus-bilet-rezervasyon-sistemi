@@ -81,8 +81,17 @@ namespace OtobusBiletRezervasyon.Controllers
         #region Basarisiz (Failed Payment)
 
         [HttpGet]
-        public IActionResult Basarisiz(int biletId)
+        public async Task<IActionResult> Basarisiz(int biletId)
         {
+            int userId = GetCurrentUserId();
+            var result = await _odemeFlowService.HazirlaOdemeSayfasiAsync(biletId, userId);
+
+            if (!result.Success && result.Type == ServiceResultType.Expired)
+            {
+                TempData["Hata"] = result.Message;
+                return RedirectToAction("Index", "Sefer");
+            }
+
             ViewBag.BiletId = biletId;
             return View();
         }

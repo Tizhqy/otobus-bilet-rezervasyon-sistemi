@@ -42,6 +42,34 @@ namespace OtobusBiletRezervasyon.Services
             if (ticket.UserId != userId && !isAdmin)
                 return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.Forbidden, "You do not have permission to access this ticket.");
 
+            if (ticket.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) || 
+                ticket.Status.Equals("BEKLEMEDE", StringComparison.OrdinalIgnoreCase))
+            {
+                if (ticket.CreatedAt.AddMinutes(AppConfig.PaymentTimeoutMinutes) < DateTime.UtcNow)
+                {
+                    await _ticketService.CancelTicketAsync(ticketId, userId);
+                    await _logService.LogTicketCancellationAsync(userId, ticketId, GetClientIpAddress());
+                    
+                    ticket = await _ticketService.GetTicketByIdAsync(ticketId);
+                }
+            }
+
+            return ServiceResult<TicketResponseDto>.Ok(ticket!);
+        }
+
+        public async Task<ServiceResult<TicketResponseDto>> GetTicketForDownloadAsync(int ticketId, int userId, bool isAdmin)
+        {
+            var result = await GetTicketDetayForUserAsync(ticketId, userId, isAdmin);
+            if (!result.Success)
+                return result;
+
+            var ticket = result.Data!;
+            if (!ticket.Status.Equals("Confirmed", StringComparison.OrdinalIgnoreCase) && 
+                !ticket.Status.Equals("ONAYLANDI", StringComparison.OrdinalIgnoreCase))
+            {
+                return ServiceResult<TicketResponseDto>.Fail(ServiceResultType.Conflict, "Sadece ödemesi tamamlanmış biletlerin çıktısı alınabilir.");
+            }
+
             return ServiceResult<TicketResponseDto>.Ok(ticket);
         }
 

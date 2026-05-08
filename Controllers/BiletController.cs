@@ -38,10 +38,16 @@ namespace OtobusBiletRezervasyon.Controllers
         {
             int userId = GetCurrentUserId();
             bool isAdmin = User.IsInRole("Admin") || User.IsInRole("admin");
-            var result = await _biletFlowService.GetTicketDetayForUserAsync(id, userId, isAdmin);
+            var result = await _biletFlowService.GetTicketForDownloadAsync(id, userId, isAdmin);
 
             if (!result.Success)
             {
+                if (result.Type == ServiceResultType.Conflict)
+                {
+                    TempData["Hata"] = result.Message;
+                    return RedirectToAction("Detay", new { id });
+                }
+
                 return result.Type switch
                 {
                     ServiceResultType.NotFound => NotFound(),
