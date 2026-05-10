@@ -113,7 +113,7 @@ Temel tablolar:
 
 ER diyagrami:
 
-![ER diyagrami:](../db_semasi_beyaz.svg)
+![ER diyagrami:](docs/db_semasi_beyaz.svg)
 
 ## Calistirma
 
