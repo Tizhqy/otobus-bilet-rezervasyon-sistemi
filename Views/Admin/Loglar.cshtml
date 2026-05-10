@@ -1,0 +1,178 @@
+@model IEnumerable<OtobusBiletRezervasyon.Models.Log>
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "System Logs";
+    var toplamKayit = ViewBag.ToplamKayit as int? ?? 0;
+    var mevcutSayfa = ViewBag.MevcutSayfa as int? ?? 1;
+    var toplamSayfa = ViewBag.ToplamSayfa as int? ?? 1;
+    var islemFiltre = ViewBag.IslemFiltre as string;
+    var kullaniciFiltre = ViewBag.KullaniciFiltre as int?;
+}
+
+<section class="py-4">
+    <div class="container">
+        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+            <div>
+                <h3 class="mb-1">System Logs</h3>
+                <p class="text-muted mb-0">Browse and filter activity logs. Total: <strong>@toplamKayit</strong> records.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a asp-action="Dashboard" asp-controller="Admin" class="btn btn-outline-secondary btn-sm">
+                    <i data-lucide="arrow-left" style="width:16px;height:16px;"></i> Dashboard
+                </a>
+            </div>
+        </div>
+
+        @if (TempData["Basari"] != null)
+        {
+            <div class="alert alert-success mb-3">@TempData["Basari"]</div>
+        }
+        @if (TempData["Hata"] != null)
+        {
+            <div class="alert alert-danger mb-3">@TempData["Hata"]</div>
+        }
+
+        <div class="data-table mb-4">
+            <div class="p-3 border-bottom d-flex flex-wrap align-items-end gap-3">
+                <form asp-action="Loglar" asp-controller="Admin" method="get" class="d-flex flex-wrap gap-2 align-items-end flex-grow-1">
+                    <div>
+                        <label class="form-label mb-1" style="font-size:0.8rem;">Action Filter</label>
+                        <input type="text"
+                               class="form-control form-control-sm"
+                               name="islem"
+                               placeholder="e.g. LOGIN, OTOBUS_EKLE"
+                               value="@islemFiltre"
+                               style="min-width:200px;" />
+                    </div>
+                    <div>
+                        <label class="form-label mb-1" style="font-size:0.8rem;">User ID</label>
+                        <input type="number"
+                               class="form-control form-control-sm"
+                               name="kullaniciId"
+                               placeholder="User ID"
+                               value="@kullaniciFiltre"
+                               style="max-width:110px;" />
+                    </div>
+                    <div class="d-flex gap-2 align-items-end">
+                        <button type="submit" class="btn btn-sm btn-primary-HamsiBus">Filter</button>
+                        @if (!string.IsNullOrWhiteSpace(islemFiltre) || kullaniciFiltre.HasValue)
+                        {
+                            <a asp-action="Loglar" asp-controller="Admin" class="btn btn-sm btn-outline-secondary">Clear</a>
+                        }
+                    </div>
+                </form>
+
+                <div class="ms-auto">
+                    <form asp-action="LoglarTemizle" asp-controller="Admin" method="post" class="d-flex align-items-end gap-2" onsubmit="return confirm('Are you sure? This will delete old log records.');">
+                        @Html.AntiForgeryToken()
+                        <div>
+                            <label class="form-label mb-1" style="font-size:0.8rem;">Delete older than (days)</label>
+                            <input type="number" class="form-control form-control-sm" name="gunSayisi" value="30" min="7" max="365" style="max-width:90px;" />
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i data-lucide="trash-2" style="width:15px;height:15px;"></i> Cleanup
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>User ID</th>
+                            <th>Action</th>
+                            <th>Description</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    @if (!string.IsNullOrWhiteSpace(islemFiltre) || kullaniciFiltre.HasValue)
+                                    {
+                                        <span>No logs match the current filter.</span>
+                                    }
+                                    else
+                                    {
+                                        <span>No log records found.</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var log in Model)
+                            {
+                                <tr>
+                                    <td style="white-space:nowrap; font-size:0.85rem;">@log.CreatedAt.ToString("dd.MM.yyyy HH:mm:ss")</td>
+                                    <td>@log.UserId</td>
+                                    <td>
+                                        <span class="badge rounded-pill" style="background:var(--primary-bg); color:var(--primary); font-size:0.75rem; font-weight:600;">
+                                            @log.Action
+                                        </span>
+                                    </td>
+                                    <td style="max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="@log.Description">@log.Description</td>
+                                    <td style="font-size:0.82rem; color:var(--text-muted);">@log.IpAddress</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (toplamSayfa > 1)
+            {
+                <div class="p-3 d-flex justify-content-center">
+                    <nav aria-label="Logs pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            @if (mevcutSayfa > 1)
+                            {
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       asp-action="Loglar" asp-controller="Admin"
+                                       asp-route-islem="@islemFiltre"
+                                       asp-route-kullaniciId="@kullaniciFiltre"
+                                       asp-route-sayfa="@(mevcutSayfa - 1)">
+                                        &laquo;
+                                    </a>
+                                </li>
+                            }
+                            @for (int p = Math.Max(1, mevcutSayfa - 3); p <= Math.Min(toplamSayfa, mevcutSayfa + 3); p++)
+                            {
+                                <li class="page-item @(p == mevcutSayfa ? "active" : "")">
+                                    <a class="page-link"
+                                       asp-action="Loglar" asp-controller="Admin"
+                                       asp-route-islem="@islemFiltre"
+                                       asp-route-kullaniciId="@kullaniciFiltre"
+                                       asp-route-sayfa="@p">
+                                        @p
+                                    </a>
+                                </li>
+                            }
+                            @if (mevcutSayfa < toplamSayfa)
+                            {
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       asp-action="Loglar" asp-controller="Admin"
+                                       asp-route-islem="@islemFiltre"
+                                       asp-route-kullaniciId="@kullaniciFiltre"
+                                       asp-route-sayfa="@(mevcutSayfa + 1)">
+                                        &raquo;
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </div>
+
+        <p class="text-muted text-center" style="font-size:0.82rem;">
+            Page @mevcutSayfa of @toplamSayfa &nbsp;&middot;&nbsp; @toplamKayit total records
+        </p>
+    </div>
+</section>

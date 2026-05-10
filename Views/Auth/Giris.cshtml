@@ -1,0 +1,66 @@
+@model OtobusBiletRezervasyon.DTOs.Auth.LoginDto
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Giris";
+}
+
+<section class="py-5">
+    <div class="container">
+        <div class="auth-container">
+            <div class="auth-left">
+                <div class="auth-branding position-relative" style="z-index:2;max-width:440px;">
+                    <a asp-controller="Sefer" asp-action="Index" class="d-flex align-items-center gap-2 mb-4" style="color:#fff;font-weight:800;font-size:1.5rem;">
+                        <i data-lucide="bus" style="width:32px;height:32px;color:var(--accent);"></i>
+                        HamsiBus
+                    </a>
+                    <h1>Your journey starts here.</h1>
+                    <p>Join millions of travelers who trust HamsiBus for comfortable, affordable bus travel across the country.</p>
+                </div>
+            </div>
+
+            <div class="auth-right">
+                <div class="auth-form">
+                    <h2>Welcome back</h2>
+                    <p class="text-muted mb-4">Log in to manage your trips and bookings</p>
+
+                    <form asp-controller="Auth" asp-action="Giris" method="post">
+                        @Html.AntiForgeryToken()
+                        @if (ViewBag.ReturnUrl is string returnUrl && !string.IsNullOrWhiteSpace(returnUrl))
+                        {
+                            <input type="hidden" name="returnUrl" value="@returnUrl" />
+                        }
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label" style="font-weight:600;font-size:0.9rem;">Email Address</label>
+                            <input asp-for="Email" type="email" class="form-control" placeholder="you@example.com" />
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <label asp-for="Password" class="form-label mb-0" style="font-weight:600;font-size:0.9rem;">Password</label>
+                                <a asp-controller="Auth" asp-action="SifremiUnuttum" style="font-size:0.85rem;color:var(--primary);font-weight:600;">Forgot password?</a>
+                            </div>
+                            <input asp-for="Password" type="password" class="form-control mt-1" placeholder="Enter your password" />
+                            <span asp-validation-for="Password" class="text-danger small"></span>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mb-4">
+                            <div class="form-check">
+                                <input asp-for="RememberMe" class="form-check-input" />
+                                <label asp-for="RememberMe" class="form-check-label" style="font-size:0.9rem;">Remember me</label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary-HamsiBus w-100 py-3 mb-3" style="font-size:1rem;">
+                            Log In
+                        </button>
+                    </form>
+
+                    <p class="text-center mt-4 mb-0" style="font-size:0.9rem;color:var(--text-muted);">
+                        Don't have an account?
+                        <a asp-controller="Auth" asp-action="Kayit" style="color:var(--primary);font-weight:600;">Sign up for free</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+

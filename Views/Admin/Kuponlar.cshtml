@@ -1,0 +1,166 @@
+@model IEnumerable<OtobusBiletRezervasyon.Models.Coupon>
+
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Kupon Yönetimi";
+    var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
+}
+
+<section class="py-4">
+    <div class="container">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h3 class="mb-1 fw-800" style="color:var(--text-dark);">Coupon Management</h3>
+                <p class="text-muted mb-0">Add, edit or remove discount coupons in the system.</p>
+            </div>
+            <button class="btn btn-primary-HamsiBus" data-bs-toggle="modal" data-bs-target="#addCouponModal">
+                <i data-lucide="plus" style="width:18px;height:18px;"></i> Add New Coupon
+            </button>
+        </div>
+
+        <div class="data-table">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Coupon Code</th>
+                            <th>Discount Rate</th>
+                            <th>Valid Until</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No coupons added yet.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var coupon in Model.OrderByDescending(c => c.Id))
+                            {
+                                var isExpired = coupon.ValidUntil.HasValue && coupon.ValidUntil.Value < DateTime.UtcNow;
+                                <tr>
+                                    <td>@coupon.Id</td>
+                                    <td>
+                                        <span class="badge bg-dark">@coupon.Code</span>
+                                    </td>
+                                    <td>
+                                        @(coupon.DiscountType == "Percentage" ? "%" : "₺")@coupon.DiscountAmount.ToString("0.##")
+                                    </td>
+                                    <td>
+                                        @if (!coupon.ValidUntil.HasValue)
+                                        {
+                                            <span class="text-muted">Unlimited</span>
+                                        }
+                                        else if (isExpired)
+                                        {
+                                            <span class="text-danger">@coupon.ValidUntil.Value.ToString("dd.MM.yyyy HH:mm") (Expired)</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@coupon.ValidUntil.Value.ToString("dd.MM.yyyy HH:mm")</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge-status @(coupon.IsActive ? "badge-active" : "badge-inactive")">
+                                            @(coupon.IsActive ? "Active" : "Inactive")
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <form asp-action="KuponDurumDegistir" asp-controller="Admin" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@coupon.Id" />
+                                                <button type="submit" class="btn btn-sm @(coupon.IsActive ? "btn-outline-warning" : "btn-outline-success")" style="border-radius: var(--radius);">
+                                                    @(coupon.IsActive ? "Deactivate" : "Activate")
+                                                </button>
+                                            </form>
+
+                                            <form asp-action="KuponSil" asp-controller="Admin" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to completely delete this coupon? (Previously used coupons might not be deleted)');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@coupon.Id" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" style="border-radius: var(--radius);">
+                                                    <i data-lucide="trash-2" style="width:14px;height:14px;"></i> Delete
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add Coupon Modal -->
+<div class="modal fade" id="addCouponModal" tabindex="-1" aria-labelledby="addCouponModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow" style="border-radius: 16px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-700" id="addCouponModalLabel">Add New Coupon</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form asp-action="KuponEkle" asp-controller="Admin" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label" style="font-weight:600;">Coupon Code</label>
+                        <input type="text" class="form-control" name="Code" required placeholder="E.g: SUMMER10" style="text-transform: uppercase;" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-weight:600;">Discount Type</label>
+                        <select class="form-select" name="DiscountType" required>
+                            <option value="Percentage">Percentage (%)</option>
+                            <option value="Fixed">Fixed Amount ($)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-weight:600;">Discount Amount</label>
+                        <input type="number" step="0.01" class="form-control" name="DiscountAmount" min="1" required placeholder="E.g: 15" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-weight:600;">Valid Until</label>
+                        <input type="datetime-local" class="form-control" name="ValidUntil" required />
+                    </div>
+                    <div class="mb-3 form-check form-switch pt-2">
+                        <input class="form-check-input" type="checkbox" name="IsActive" value="true" id="isActiveCheck" checked>
+                        <label class="form-check-label" for="isActiveCheck" style="font-weight:600;">Activate Immediately</label>
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary-HamsiBus">Save and Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script nonce="@cspNonce">
+        document.addEventListener("DOMContentLoaded", function () {
+            lucide.createIcons();
+            
+            // Set default date to +1 month from now
+            const dateInput = document.querySelector('input[name="ValidUntil"]');
+            if (dateInput) {
+                const now = new Date();
+                now.setMonth(now.getMonth() + 1);
+                // format wrapper for datetime-local (YYYY-MM-DDTHH:MM)
+                const yyyy = now.getFullYear();
+                const MM = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const HH = String(now.getHours()).padStart(2, '0');
+                const mm = String(now.getMinutes()).padStart(2, '0');
+                dateInput.value = `${yyyy}-${MM}-${dd}T${HH}:${mm}`;
+            }
+        });
+    </script>
+}

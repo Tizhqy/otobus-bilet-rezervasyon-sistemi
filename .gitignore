@@ -1,0 +1,6 @@
+*.md
+appsettings.Development.json
+bin/
+obj/
+*.pem
+publish/

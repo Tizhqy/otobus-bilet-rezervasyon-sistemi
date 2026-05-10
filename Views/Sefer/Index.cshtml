@@ -1,0 +1,152 @@
+@model OtobusBiletRezervasyon.DTOs.Search.SearchQueryDto
+@using OtobusBiletRezervasyon.DTOs.Search
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Ana Sayfa";
+    var istasyonlar = ViewBag.Istasyonlar as IEnumerable<StationInfoDto> ?? Enumerable.Empty<StationInfoDto>();
+    var yaklasanSeferler = ViewBag.YaklasanSeferler as IEnumerable<DepartureResponseDto> ?? Enumerable.Empty<DepartureResponseDto>();
+}
+
+<section class="hero-section">
+    <div class="container position-relative" style="z-index:5;">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <span class="badge rounded-pill px-3 py-2 mb-3" style="background:rgba(230,126,34,0.2);color:#f39c12;font-weight:600;">
+                    <i data-lucide="sparkles" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i>
+                    Trusted by travelers
+                </span>
+                <h1 class="mb-3" style="color:#fff;">Travel smarter.<br />Book your bus<br />in seconds.</h1>
+                <p class="mb-0" style="max-width:480px;">
+                    Search routes, compare prices and reserve your seat with secure payment flow.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container">
+    <div class="search-card slide-up">
+        <form asp-controller="Sefer" asp-action="Ara" method="get">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-3 col-md-6">
+                    <label asp-for="OriginStationId" class="form-label fw-600" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">FROM</label>
+                    <div class="search-input-group">
+                        <i data-lucide="map-pin" class="input-icon"></i>
+                        <select asp-for="OriginStationId" class="form-select" style="padding-left:2.75rem;">
+                            <option value="">Select origin</option>
+                            @foreach (var station in istasyonlar)
+                            {
+                                <option value="@station.Id">@station.City - @station.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label asp-for="DestinationStationId" class="form-label fw-600" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">TO</label>
+                    <div class="search-input-group">
+                        <i data-lucide="map-pin" class="input-icon"></i>
+                        <select asp-for="DestinationStationId" class="form-select" style="padding-left:2.75rem;">
+                            <option value="">Select destination</option>
+                            @foreach (var station in istasyonlar)
+                            {
+                                <option value="@station.Id">@station.City - @station.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <label asp-for="TravelDate" class="form-label fw-600" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">DATE</label>
+                    <div class="search-input-group">
+                        <i data-lucide="calendar" class="input-icon"></i>
+                        <input asp-for="TravelDate" type="date" class="form-control" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <label asp-for="PassengerCount" class="form-label fw-600" style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">PASSENGERS</label>
+                    <div class="search-input-group">
+                        <i data-lucide="users" class="input-icon"></i>
+                        <select asp-for="PassengerCount" class="form-select" style="padding-left:2.75rem;">
+                            <option value="1">1 Adult</option>
+                            <option value="2">2 Adults</option>
+                            <option value="3">3 Adults</option>
+                            <option value="4">4 Adults</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <button type="submit" class="btn btn-primary-HamsiBus w-100 py-3" style="font-size:1rem;">
+                        <i data-lucide="search" style="width:18px;height:18px;"></i>
+                        Search
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<section class="py-5 mt-4">
+    <div class="container">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h2 class="h3 fw-800 mb-1">Upcoming Departures</h2>
+                <p class="text-muted mb-0">Most relevant departures right now</p>
+            </div>
+            <a asp-controller="Sefer" asp-action="AramaSonuclari" class="btn btn-outline-HamsiBus d-none d-md-flex">
+                View all routes
+                <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+            </a>
+        </div>
+
+        <div class="row g-3">
+            @if (!yaklasanSeferler.Any())
+            {
+                <div class="col-12">
+                    <div class="empty-state card-HamsiBus">
+                        <div class="empty-icon">
+                            <i data-lucide="bus" style="width:32px;height:32px;"></i>
+                        </div>
+                        <h5>No upcoming departures</h5>
+                        <p>Try another route or come back shortly.</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (var sefer in yaklasanSeferler.Take(6))
+                {
+                    <div class="col-lg-4 col-md-6">
+                        <a class="route-card" asp-controller="Sefer" asp-action="Detay" asp-route-id="@sefer.Id">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div style="width:42px;height:42px;background:var(--primary-bg);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                                        <i data-lucide="building-2" style="width:20px;height:20px;color:var(--primary);"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-700" style="font-weight:700;color:var(--text-dark);">@sefer.Route.OriginStation.City</div>
+                                        <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.OriginStation.Name</div>
+                                    </div>
+                                </div>
+                                <i data-lucide="arrow-right" style="width:18px;height:18px;color:var(--text-muted);"></i>
+                                <div class="text-end">
+                                    <div class="fw-700" style="font-weight:700;color:var(--text-dark);">@sefer.Route.DestinationStation.City</div>
+                                    <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.DestinationStation.Name</div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between pt-2" style="border-top:1px solid var(--border-light);">
+                                <div class="d-flex gap-2">
+                                    <span class="amenity-tag"><i data-lucide="clock" style="width:12px;height:12px;"></i> @sefer.DepartureTime.ToString("HH:mm")</span>
+                                    <span class="amenity-tag"><i data-lucide="users" style="width:12px;height:12px;"></i> @sefer.AvailableSeats seats</span>
+                                </div>
+                                <div>
+                                    <span style="font-size:0.8rem;color:var(--text-muted);">from </span>
+                                    <span class="route-price">$@sefer.Price.ToString("0.00")</span>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</section>
+

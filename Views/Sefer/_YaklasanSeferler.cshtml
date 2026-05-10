@@ -1,0 +1,40 @@
+@model IEnumerable<OtobusBiletRezervasyon.DTOs.Search.DepartureResponseDto>
+
+@foreach (var sefer in Model)
+{
+    <div class="result-card mb-3">
+        <div class="row align-items-center g-3">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="operator-logo">
+                        <i data-lucide="bus" style="width:22px;height:22px;"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">@sefer.Bus.PlateNumber</span>
+                            <span class="seats-badge @(sefer.AvailableSeats <= 5 ? "seats-last" : sefer.AvailableSeats <= 10 ? "seats-few" : "seats-many")">
+                                @sefer.AvailableSeats seats left
+                            </span>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                            <div>
+                                <div class="trip-time">@sefer.DepartureTime.ToString("HH:mm")</div>
+                                <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.OriginStation.City</div>
+                            </div>
+                            <div class="trip-line"><div class="line"></div></div>
+                            <div class="text-end">
+                                <div class="trip-time">@sefer.ArrivalTime.ToString("HH:mm")</div>
+                                <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.DestinationStation.City</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="trip-price">$@sefer.Price.ToString("0.00")</div>
+                <a asp-controller="Sefer" asp-action="Detay" asp-route-id="@sefer.Id" class="btn btn-primary-HamsiBus mt-2">Select</a>
+            </div>
+        </div>
+    </div>
+}
+

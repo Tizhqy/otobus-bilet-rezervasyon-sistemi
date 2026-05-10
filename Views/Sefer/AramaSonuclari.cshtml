@@ -1,0 +1,382 @@
+@model OtobusBiletRezervasyon.DTOs.ViewModels.SeferAramaContextViewModel
+@using OtobusBiletRezervasyon.DTOs.Search
+@using System.Globalization
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Search Results";
+    var kriter = Model?.AramaKriterleri ?? new SearchQueryDto { TravelDate = DateTime.Today, PassengerCount = 1 };
+    var sonuclar = (Model?.Sonuclar ?? Enumerable.Empty<DepartureResponseDto>()).ToList();
+    var kalkis = Model?.KalkisIstasyonu;
+    var varis = Model?.VarisIstasyonu;
+    var kalkisLabel = kalkis?.City ?? (sonuclar.Any() ? "All routes" : "-");
+    var varisLabel = varis?.City ?? (sonuclar.Any() ? "All routes" : "-");
+    var rotaOzet = (kalkis != null && varis != null) ? $"{kalkis.City} to {varis.City}" : (sonuclar.Any() ? "All routes" : "- to -");
+    var minPrice = sonuclar.Any() ? Math.Floor(sonuclar.Min(s => s.Price)) : 0m;
+    var maxPrice = Model?.MaxPrice ?? (sonuclar.Any() ? Math.Ceiling(sonuclar.Max(s => s.Price)) : 100m);
+    var sliderMin = sonuclar.Any() ? (int)Math.Max(0m, minPrice) : 0;
+    var sliderMax = (int)Math.Max(sliderMin + 1, maxPrice);
+    var cokluTarihVar = sonuclar.Select(s => s.DepartureTime.Date).Distinct().Skip(1).Any();
+    var tarihLabel = cokluTarihVar ? "Multiple dates" : kriter.TravelDate.ToString("dd MMM yyyy");
+    var cspNonce = Context.Items["CspNonce"] as string ?? string.Empty;
+    var availableLayouts = sonuclar
+        .Select(s => s.Bus?.Type?.Trim())
+        .Where(type => !string.IsNullOrWhiteSpace(type))
+        .Select(type => type!)
+        .Distinct()
+        .OrderByDescending(type => type)
+        .ToList();
+}
+
+<div style="background:var(--primary);padding:1rem 0;">
+    <div class="container">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-3">
+                <div class="d-flex align-items-center gap-2" style="color:#fff;">
+                    <i data-lucide="map-pin" style="width:16px;height:16px;opacity:0.7;"></i>
+                    <div>
+                        <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">From</div>
+                        <div style="font-weight:700;">@kalkisLabel</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-auto d-none d-md-block">
+                <i data-lucide="arrow-right" style="width:20px;height:20px;color:rgba(255,255,255,0.4);"></i>
+            </div>
+            <div class="col-md-3">
+                <div class="d-flex align-items-center gap-2" style="color:#fff;">
+                    <i data-lucide="map-pin" style="width:16px;height:16px;opacity:0.7;"></i>
+                    <div>
+                        <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">To</div>
+                        <div style="font-weight:700;">@varisLabel</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="d-flex align-items-center gap-2" style="color:#fff;">
+                    <i data-lucide="calendar" style="width:16px;height:16px;opacity:0.7;"></i>
+                    <div>
+                        <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">Date</div>
+                        <div style="font-weight:700;">@tarihLabel</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="d-flex align-items-center gap-2" style="color:#fff;">
+                    <i data-lucide="users" style="width:16px;height:16px;opacity:0.7;"></i>
+                    <div>
+                        <div style="font-size:0.7rem;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;">Passengers</div>
+                        <div style="font-weight:700;">@kriter.PassengerCount Adult</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-1 text-end">
+                <a asp-controller="Sefer" asp-action="Index" class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-radius:8px;">
+                    <i data-lucide="pencil" style="width:16px;height:16px;"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="py-4">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-3">
+                <div class="filter-section mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="mb-0 h6 fw-700" style="color:var(--text-dark);">Filters</h5>
+                        <button class="btn btn-sm btn-ghost" id="resetFiltersBtn" type="button" style="font-size:0.8rem;color:var(--accent);">Reset all</button>
+                    </div>
+                    <h6>Price Range</h6>
+                    <input type="range"
+                           class="form-range"
+                           min="@sliderMin"
+                           max="@sliderMax"
+                           value="@sliderMax"
+                           id="priceRange"
+                    @(sonuclar.Any() ? null : "disabled")>
+                    <div class="price-range-display">
+                        <span>$@sliderMin</span>
+                        <span id="priceLabel">Up to $@sliderMax</span>
+                    </div>
+
+                    @if(availableLayouts.Any())
+                    {
+                        <hr class="my-3" style="border-color:var(--border);" />
+                        <h6 class="mt-2">Bus Layout</h6>
+                        <div id="layoutFilters">
+                            @foreach(var layout in availableLayouts)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input layout-filter" type="checkbox" value="@layout" id="layout_@layout.Replace("+","")" checked>
+                                    <label class="form-check-label" for="layout_@layout.Replace("+","")">@layout Layout</label>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="col-lg-9">
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
+                    <div>
+                        <span id="foundCount" class="fw-700" style="color:var(--text-dark);">@sonuclar.Count buses found</span>
+                        <span class="text-muted" style="font-size:0.9rem;"> &middot; @rotaOzet</span>
+                    </div>
+                </div>
+
+                <div id="resultsContainer">
+                    @if (!sonuclar.Any())
+                    {
+                        <div class="empty-state card-HamsiBus">
+                            <div class="empty-icon">
+                                <i data-lucide="search-x" style="width:32px;height:32px;"></i>
+                            </div>
+                            <h5>No trips found</h5>
+                            <p>Try changing date or stations.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var sefer in sonuclar)
+                        {
+                            <div class="result-card mb-3 fade-in" data-price="@sefer.Price.ToString("0.00", CultureInfo.InvariantCulture)" data-layout="@(sefer.Bus?.Type?.Trim() ?? "")">
+                                <div class="row align-items-center g-3">
+                                    <div class="col-md-7">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="operator-logo">
+                                                <i data-lucide="bus" style="width:22px;height:22px;"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                                    <span style="font-weight:600;font-size:0.85rem;color:var(--text-dark);">@(sefer.Bus?.PlateNumber ?? $"Bus #{sefer.Bus?.Id ?? 0}")</span>
+                                                    <span class="seats-badge @(sefer.AvailableSeats <= 5 ? "seats-last" : sefer.AvailableSeats <= 10 ? "seats-few" : "seats-many")">
+                                                        @sefer.AvailableSeats seats left
+                                                    </span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <div>
+                                                        <div class="trip-time">@sefer.DepartureTime.ToString("HH:mm")</div>
+                                                        <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.OriginStation.City</div>
+                                                        <div style="font-size:0.72rem;color:var(--text-muted);">@sefer.DepartureTime.ToString("dd MMM yyyy")</div>
+                                                    </div>
+                                                    <div class="trip-line"><div class="line"></div></div>
+                                                    <div class="text-center">
+                                                        <div class="trip-duration">@((sefer.ArrivalTime - sefer.DepartureTime).Hours)h @((sefer.ArrivalTime - sefer.DepartureTime).Minutes)m</div>
+                                                        <div style="font-size:0.7rem;color:var(--text-muted);">Direct</div>
+                                                    </div>
+                                                    <div class="trip-line"><div class="line"></div></div>
+                                                    <div class="text-end">
+                                                        <div class="trip-time">@sefer.ArrivalTime.ToString("HH:mm")</div>
+                                                        <div style="font-size:0.8rem;color:var(--text-muted);">@sefer.Route.DestinationStation.City</div>
+                                                        <div style="font-size:0.72rem;color:var(--text-muted);">@sefer.ArrivalTime.ToString("dd MMM yyyy")</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3">
+                                            <div class="text-md-end">
+                                                <div class="trip-price">$@sefer.Price.ToString("0.00")</div>
+                                                <div style="font-size:0.8rem;color:var(--text-muted);">per person</div>
+                                                @if (sefer.IsDynamicPricingApplied)
+                                                {
+                                                    <div style="font-size: 0.70rem; color: var(--danger); font-weight: 500; margin-top: 2px;"><i data-lucide="trending-up" style="width:12px;height:12px;"></i> High demand price</div>
+                                                }
+                                            </div>
+                                            <a asp-controller="Sefer" asp-action="Detay" asp-route-id="@sefer.Id" class="btn btn-primary-HamsiBus">
+                                                Select
+                                                <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        <div id="filterNoResultState" class="empty-state card-HamsiBus" style="display:none;">
+                            <div class="empty-icon">
+                                <i data-lucide="sliders-horizontal" style="width:32px;height:32px;"></i>
+                            </div>
+                            <h5>No trips in selected price range</h5>
+                            <p>Increase the price range or reset filters.</p>
+                        </div>
+                    }
+                </div>
+
+                <!-- Pagination Controls -->
+                @if (sonuclar.Count > 10)
+                {
+                    <div class="d-flex justify-content-center align-items-center gap-3 mt-4" id="paginationControls" style="display: none;">
+                        <button class="btn btn-sm btn-outline-primary" id="prevBtn" disabled>
+                            <i data-lucide="chevron-left" style="width:16px;height:16px;"></i> Previous
+                        </button>
+                        <span id="pageInfo" class="text-muted" style="min-width: 150px; text-align: center; font-size: 0.9rem;"></span>
+                        <button class="btn btn-sm btn-outline-primary" id="nextBtn">
+                            Next <i data-lucide="chevron-right" style="width:16px;height:16px;"></i>
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script nonce="@cspNonce">
+        document.addEventListener("DOMContentLoaded", function () {
+            const priceRange = document.getElementById("priceRange");
+            const resetButton = document.getElementById("resetFiltersBtn");
+            const priceLabel = document.getElementById("priceLabel");
+            const foundCount = document.getElementById("foundCount");
+            const resultCards = Array.from(document.querySelectorAll("#resultsContainer .result-card[data-price]"));
+            const filterNoResultState = document.getElementById("filterNoResultState");
+            const layoutFilters = document.querySelectorAll(".layout-filter");
+            
+            // Pagination variables
+            const resultsPerPage = 10;
+            let currentPage = 1;
+            const paginationControls = document.getElementById("paginationControls");
+            const prevBtn = document.getElementById("prevBtn");
+            const nextBtn = document.getElementById("nextBtn");
+            const pageInfo = document.getElementById("pageInfo");
+
+            function updatePriceLabel(value) {
+                if (!priceLabel) return;
+                priceLabel.textContent = "Up to $" + Number(value).toFixed(0);
+            }
+
+            function getFilteredCards() {
+                return resultCards.filter(card => card.dataset.filtered === "true");
+            }
+
+            function showPage(page) {
+                const filteredCards = getFilteredCards();
+                const totalPages = Math.ceil(filteredCards.length / resultsPerPage);
+
+                if (filteredCards.length === 0) {
+                    if (pageInfo) pageInfo.textContent = "";
+                    if (prevBtn) prevBtn.disabled = true;
+                    if (nextBtn) nextBtn.disabled = true;
+                    return;
+                }
+                
+                if (page < 1) page = 1;
+                if (page > totalPages && totalPages > 0) page = totalPages;
+
+                const start = (page - 1) * resultsPerPage;
+                const end = start + resultsPerPage;
+
+                filteredCards.forEach((card, index) => {
+                    card.style.display = index >= start && index < end ? "" : "none";
+                });
+
+                if (pageInfo && totalPages > 0) {
+                    pageInfo.textContent = `Page ${page} of ${totalPages} • Showing ${Math.min(filteredCards.length - start, resultsPerPage)} of ${filteredCards.length}`;
+                }
+
+                if (prevBtn) prevBtn.disabled = page <= 1;
+                if (nextBtn) nextBtn.disabled = page >= totalPages;
+
+                currentPage = page;
+            }
+
+            function updatePaginationVisibility() {
+                const filteredCards = getFilteredCards();
+                if (paginationControls) {
+                    paginationControls.style.display = filteredCards.length > resultsPerPage ? "" : "none";
+                }
+                if (filteredCards.length > 0) {
+                    showPage(1);
+                } else if (pageInfo) {
+                    pageInfo.textContent = "";
+                }
+            }
+
+            function applyFilters() {
+                if (resultCards.length === 0) return;
+                
+                const selectedMaxPrice = priceRange ? Number(priceRange.value) : Infinity;
+                const selectedLayouts = Array.from(layoutFilters)
+                                             .filter(cb => cb.checked)
+                                             .map(cb => cb.value);
+
+                let visibleCount = 0;
+
+                resultCards.forEach(function (card) {
+                    const cardPrice = Number(card.dataset.price || "0");
+                    const cardLayout = card.dataset.layout || "";
+                    
+                    const priceMatch = cardPrice <= selectedMaxPrice;
+                    const layoutMatch = layoutFilters.length === 0 || selectedLayouts.includes(cardLayout);
+                    
+                    const isFiltered = priceMatch && layoutMatch;
+                    
+                    card.dataset.filtered = isFiltered ? "true" : "false";
+                    card.style.display = isFiltered ? "" : "none";
+                    if (isFiltered) visibleCount++;
+                });
+
+                if (foundCount) {
+                    foundCount.textContent = visibleCount + " buses found";
+                }
+
+                if (filterNoResultState) {
+                    filterNoResultState.style.display = visibleCount === 0 ? "" : "none";
+                }
+
+                updatePaginationVisibility();
+
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+            }
+
+            function resetFilters() {
+                if (priceRange) {
+                    priceRange.value = priceRange.max;
+                    updatePriceLabel(priceRange.value);
+                }
+                if (layoutFilters.length > 0) {
+                    layoutFilters.forEach(cb => cb.checked = true);
+                }
+                applyFilters();
+            }
+
+            if (priceRange) {
+                priceRange.addEventListener("input", function () {
+                    updatePriceLabel(priceRange.value);
+                    applyFilters();
+                });
+                priceRange.value = priceRange.max;
+                updatePriceLabel(priceRange.value);
+            }
+
+            if (layoutFilters.length > 0) {
+                layoutFilters.forEach(cb => cb.addEventListener("change", applyFilters));
+            }
+
+            if (resetButton) {
+                resetButton.addEventListener("click", resetFilters);
+            }
+
+            if (prevBtn) {
+                prevBtn.addEventListener("click", function () {
+                    showPage(currentPage - 1);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                });
+            }
+
+            if (nextBtn) {
+                nextBtn.addEventListener("click", function () {
+                    showPage(currentPage + 1);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                });
+            }
+            
+            // Initial run
+            applyFilters();
+        });
+    </script>
+}
+
